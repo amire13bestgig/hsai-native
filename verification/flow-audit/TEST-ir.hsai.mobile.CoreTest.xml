@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ir.hsai.mobile.CoreTest" tests="32" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:31:33" hostname="e2b.local" time="0.374">
+  <properties/>
+  <testcase name="nationalIdRepeatedRejected" classname="ir.hsai.mobile.CoreTest" time="0.006"/>
+  <testcase name="routesRejectWrongMethod" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="rejectsMonth13" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="routesAllowReadQuery" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="rejectsScientific" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="calendarIsAllDayAndEscapesInjection" classname="ir.hsai.mobile.CoreTest" time="0.012"/>
+  <testcase name="rejectsFractionalCount" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="routesRejectExternal" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="apiSendsBearerAndJsonBody" classname="ir.hsai.mobile.CoreTest" time="0.278"/>
+  <testcase name="apiMissingTokenIsLocalError" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="persianDigits" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="apiReadsEnvelope" classname="ir.hsai.mobile.CoreTest" time="0.012"/>
+  <testcase name="inheritanceUsesProductionSpouse" classname="ir.hsai.mobile.CoreTest" time="0.003"/>
+  <testcase name="iranPhone" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="inheritanceTaxUsesProductionAssets" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="tenCalculators" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="rejectsUnsafeLargeNumber" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="missingNationalIdRejected" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="routesRejectTraversal" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="rejectsNegative" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="sseMultilineAndComments" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="sseResetsEvent" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="arabicDigitsAndSeparators" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="sseDelta" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="routesAllowCheckoutAndLookup" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="rejectsLargePercent" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="apiDoesNotInventSuccessOnError" classname="ir.hsai.mobile.CoreTest" time="0.026"/>
+  <testcase name="apiRejectsInvalidJson" classname="ir.hsai.mobile.CoreTest" time="0.011"/>
+  <testcase name="tomanNumber" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="routesRejectNonNumericId" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <testcase name="rejectsBadPhone" classname="ir.hsai.mobile.CoreTest" time="0.001"/>
+  <testcase name="domesticPhone" classname="ir.hsai.mobile.CoreTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

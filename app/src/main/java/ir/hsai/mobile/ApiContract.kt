@@ -36,6 +36,10 @@ object ApiContract {
  }
  fun simplifiedText(data:JSONObject):String = listOf("simplified_content","content","simplified","simplified_answer","answer","text")
   .firstNotNullOfOrNull { data.str(it).takeIf(String::isNotBlank) } ?: throw ApiException("متن ساده‌شده در خروجی نیست.")
+ fun quickQuestions(data:JSONObject):List<JSONObject> {
+  val v=data.optJSONObject("verification")
+  return data.objects("quick_questions").ifEmpty{v?.objects("quick_questions").orEmpty()}.ifEmpty{v?.optJSONObject("intake")?.objects("questions").orEmpty()}
+ }
  fun paymentAuthority(payment:JSONObject)=payment.str("authority",payment.str("authority_code"))
  fun stageTitle(data:JSONObject)=data.str("title",data.str("message",data.optJSONObject("stage")?.str("title").orEmpty()))
  fun streamError(data:JSONObject):String = data.optJSONObject("error")?.str("message")?.takeIf(String::isNotBlank)

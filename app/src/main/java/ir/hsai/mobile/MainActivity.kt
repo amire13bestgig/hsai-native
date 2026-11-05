@@ -62,7 +62,7 @@ class MainActivity:ComponentActivity() {
   handleIntent(intent)
  }
  private fun camera(){val folder=File(cacheDir,"camera").apply{mkdirs()};folder.listFiles()?.filter{System.currentTimeMillis()-it.lastModified()>3600000}?.forEach{it.delete()};cameraFile=File.createTempFile("legal-",".jpg",folder);cameraUri=FileProvider.getUriForFile(this,"$packageName.files",cameraFile!!);takePhoto.launch(cameraUri!!)}
- private fun readImage(uri:Uri) { lifecycleScope.launch {
+ private fun readImage(uri:Uri) { val ownerToken=vm.api.token;lifecycleScope.launch {
   try { val data=withContext(Dispatchers.IO){
    val bytes=contentResolver.openInputStream(uri)?.use{input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);var total=0;while(true){val n=input.read(buffer);if(n<0)break;total+=n;require(total<=20*1024*1024){"حجم تصویر بیش از حد بزرگ است."};out.write(buffer,0,n)};out.toByteArray()}?:error("تصویر خوانده نشد.")
    require(bytes.size<=20*1024*1024){"حجم تصویر باید کمتر از ۲۰ مگابایت باشد."}
@@ -70,8 +70,11 @@ class MainActivity:ComponentActivity() {
    require(options.outWidth>0&&options.outHeight>0){"فایل تصویر معتبر نیست."}
    var sample=1;while(maxOf(options.outWidth,options.outHeight)/sample>2400)sample*=2
    val bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.size,BitmapFactory.Options().apply{inSampleSize=sample})?:error("تصویر قابل خواندن نیست.")
-   val out=ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,92,out);bitmap.recycle();"data:image/jpeg;base64,"+android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP)
-  };vm.setImage(data);vm.notice("تصویر آماده است؛ مشخصات حساس را پیش از ارسال بپوشانید.")
+   val orientation=runCatching{androidx.exifinterface.media.ExifInterface(java.io.ByteArrayInputStream(bytes)).getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,1)}.getOrDefault(1)
+   val matrix=android.graphics.Matrix().apply{when(orientation){2->setScale(-1f,1f);3->setRotate(180f);4->setScale(1f,-1f);5->{setRotate(90f);postScale(-1f,1f)};6->setRotate(90f);7->{setRotate(90f);postScale(1f,-1f)};8->setRotate(270f)}}
+   val oriented=if(orientation in 2..8)Bitmap.createBitmap(bitmap,0,0,bitmap.width,bitmap.height,matrix,true)else bitmap
+   val out=ByteArrayOutputStream();oriented.compress(Bitmap.CompressFormat.JPEG,92,out);if(oriented!==bitmap)oriented.recycle();bitmap.recycle();"data:image/jpeg;base64,"+android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP)
+  };if(ownerToken==vm.api.token&&vm.state.value.entryComplete){vm.setImage(data);vm.notice("تصویر آماده است؛ مشخصات حساس را پیش از ارسال بپوشانید.")}
   }catch(e:Exception){vm.notice(e.message?:"خواندن تصویر ناموفق بود.")}finally{if(uri==cameraUri){cameraFile?.delete();cameraUri=null;cameraFile=null}}
  } }
  private fun download(d:AppEffect.Download){runCatching{val r=DownloadManager.Request(Uri.parse("https://hsai.ir/api/v1/documents/${d.id}/docx"));r.addRequestHeader("Authorization","Bearer ${d.token}");r.setTitle("برگه قضایی حق‌سنج");r.setMimeType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,"hsai-${d.id}-${System.currentTimeMillis()}.docx");r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);getSystemService(DownloadManager::class.java).enqueue(r)}.onSuccess{vm.notice("درخواست دانلود ثبت شد؛ وضعیت را در دانلودهای گوشی ببینید.")}.onFailure{vm.notice("شروع دانلود ناموفق بود.")}}

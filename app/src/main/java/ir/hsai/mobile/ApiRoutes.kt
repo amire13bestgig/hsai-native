@@ -25,6 +25,7 @@ object ApiRoutes {
  Regex("/documents/[0-9]+").matches(p) -> method in setOf("GET", "PUT", "DELETE")
  Regex("/documents/[0-9]+/docx").matches(p) -> method in setOf("GET")
  Regex("/scanner").matches(p) -> method in setOf("GET")
+ Regex("/scanner/[0-9]+").matches(p) -> method in setOf("DELETE")
  Regex("/scanner/analyze").matches(p) -> method in setOf("POST")
  Regex("/laws").matches(p) -> method in setOf("GET")
  Regex("/laws/collections").matches(p) -> method in setOf("GET")

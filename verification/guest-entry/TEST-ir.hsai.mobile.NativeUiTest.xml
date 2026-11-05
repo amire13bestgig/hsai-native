@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ir.hsai.mobile.NativeUiTest" tests="50" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:40:16" hostname="e2b.local" time="35.654">
+  <properties/>
+  <testcase name="v53PopularPlanUsesFeaturedSurface" classname="ir.hsai.mobile.NativeUiTest" time="11.094"/>
+  <testcase name="loginValidatesBeforeNetwork" classname="ir.hsai.mobile.NativeUiTest" time="1.122"/>
+  <testcase name="auditPasswordChangeChecksCurrentPasswordBeforePatchLocally" classname="ir.hsai.mobile.NativeUiTest" time="0.601"/>
+  <testcase name="breakpointsFollowWindowNotDeviceName" classname="ir.hsai.mobile.NativeUiTest" time="0.108"/>
+  <testcase name="auditProfilePayloadAndReadbackAreConsistent" classname="ir.hsai.mobile.NativeUiTest" time="0.5"/>
+  <testcase name="guestLoginReturnsToChatButDoesNotAutoSend" classname="ir.hsai.mobile.NativeUiTest" time="0.308"/>
+  <testcase name="v53SidebarConversationDoesNotInvalidateItsResponse" classname="ir.hsai.mobile.NativeUiTest" time="0.715"/>
+  <testcase name="guestCanReturnFromLoginAndKeepMessage" classname="ir.hsai.mobile.NativeUiTest" time="0.377"/>
+  <testcase name="everyCalculatorOnSmallMobile" classname="ir.hsai.mobile.NativeUiTest" time="1.409"/>
+  <testcase name="historicalConversationResponseIsNotDiscardedByNavigation" classname="ir.hsai.mobile.NativeUiTest" time="0.631"/>
+  <testcase name="dialogsOnSmallMobile" classname="ir.hsai.mobile.NativeUiTest" time="1.006"/>
+  <testcase name="registerUsesRealNativeFields" classname="ir.hsai.mobile.NativeUiTest" time="0.255"/>
+  <testcase name="v53AuthMethodSelectorRespectsServerConfig" classname="ir.hsai.mobile.NativeUiTest" time="0.267"/>
+  <testcase name="guestSeesChatBeforeAnyLoginPrompt" classname="ir.hsai.mobile.NativeUiTest" time="0.205"/>
+  <testcase name="v53LoginHasDesktopShowcase" classname="ir.hsai.mobile.NativeUiTest" time="0.723"/>
+  <testcase name="explicitLoginShowsFormAndHidesWorkspace" classname="ir.hsai.mobile.NativeUiTest" time="0.405"/>
+  <testcase name="auditEmptyTicketIsRejectedBeforeNetwork" classname="ir.hsai.mobile.NativeUiTest" time="0.32"/>
+  <testcase name="guestBackFromLoginRestoresChatAndEmptySendDoesNotPrompt" classname="ir.hsai.mobile.NativeUiTest" time="0.149"/>
+  <testcase name="everyCalculatorOnTablet" classname="ir.hsai.mobile.NativeUiTest" time="1.823"/>
+  <testcase name="largeFontLoginAndCalculatorStayReachable" classname="ir.hsai.mobile.NativeUiTest" time="0.429"/>
+  <testcase name="allScreensMobile" classname="ir.hsai.mobile.NativeUiTest" time="0.974"/>
+  <testcase name="auditDeletingConversationRemovesSidebarEntry" classname="ir.hsai.mobile.NativeUiTest" time="0.247"/>
+  <testcase name="composerPreservesDraftAcrossNavigation" classname="ir.hsai.mobile.NativeUiTest" time="0.32"/>
+  <testcase name="auditArticleDetailCanSeedQuestionWithoutSendingIt" classname="ir.hsai.mobile.NativeUiTest" time="0.202"/>
+  <testcase name="auditSwitchingCalculatorAwayAndBackDiscardsOldResult" classname="ir.hsai.mobile.NativeUiTest" time="0.491"/>
+  <testcase name="auditLawBrowseDoesNotRequireSearchText" classname="ir.hsai.mobile.NativeUiTest" time="0.224"/>
+  <testcase name="auditCollectionOpensItsArticles" classname="ir.hsai.mobile.NativeUiTest" time="0.182"/>
+  <testcase name="v53PasswordStrengthMatchesWebsiteScoring" classname="ir.hsai.mobile.NativeUiTest" time="0.127"/>
+  <testcase name="auditCheckoutRejectsInsecureGatewayWithoutPendingPayment" classname="ir.hsai.mobile.NativeUiTest" time="0.225"/>
+  <testcase name="allScreensLargeTablet" classname="ir.hsai.mobile.NativeUiTest" time="1.562"/>
+  <testcase name="dialogsOnTablet" classname="ir.hsai.mobile.NativeUiTest" time="0.655"/>
+  <testcase name="auditPaymentLookupDisplaysServerStateNotAssumedSuccess" classname="ir.hsai.mobile.NativeUiTest" time="0.159"/>
+  <testcase name="allScreensLandscapeTablet" classname="ir.hsai.mobile.NativeUiTest" time="1.452"/>
+  <testcase name="delayedCalculatorCannotOverwriteAnotherPageResult" classname="ir.hsai.mobile.NativeUiTest" time="0.218"/>
+  <testcase name="auditTicketCreateAndReplyUseOfficialBodies" classname="ir.hsai.mobile.NativeUiTest" time="0.168"/>
+  <testcase name="auditPasswordMismatchDoesNotTouchServer" classname="ir.hsai.mobile.NativeUiTest" time="0.19"/>
+  <testcase name="guestSendOpensLoginWithoutSendingOrLosingDraft" classname="ir.hsai.mobile.NativeUiTest" time="0.235"/>
+  <testcase name="mobileMenuNavigatesToAllSections" classname="ir.hsai.mobile.NativeUiTest" time="0.193"/>
+  <testcase name="auditStopStreamUnlocksComposerAndDoesNotEnableBlindRetry" classname="ir.hsai.mobile.NativeUiTest" time="0.217"/>
+  <testcase name="allScreensDarkTablet" classname="ir.hsai.mobile.NativeUiTest" time="1.541"/>
+  <testcase name="allScreensSmallMobile" classname="ir.hsai.mobile.NativeUiTest" time="0.706"/>
+  <testcase name="auditLatestAssistantQuestionsAreNativeAndSelectable" classname="ir.hsai.mobile.NativeUiTest" time="0.183"/>
+  <testcase name="v53GlossaryUsesWebsiteContentAndLocalSearch" classname="ir.hsai.mobile.NativeUiTest" time="0.395"/>
+  <testcase name="v53MobileLoginHidesDesktopShowcase" classname="ir.hsai.mobile.NativeUiTest" time="0.125"/>
+  <testcase name="v53UserAndAssistantBubblesRemainNative" classname="ir.hsai.mobile.NativeUiTest" time="0.268"/>
+  <testcase name="auditGeneratedDocumentOpensActualContentNotList" classname="ir.hsai.mobile.NativeUiTest" time="0.182"/>
+  <testcase name="guestPrivateNavigationRequiresLoginButPublicToolsDoNot" classname="ir.hsai.mobile.NativeUiTest" time="0.151"/>
+  <testcase name="streamingKeepsArticlesAcrossDeltasAndUpdatesSubscription" classname="ir.hsai.mobile.NativeUiTest" time="0.15"/>
+  <testcase name="restoredSessionStillShowsEntryBeforeWorkspace" classname="ir.hsai.mobile.NativeUiTest" time="0.191"/>
+  <testcase name="allScreensPortraitTablet" classname="ir.hsai.mobile.NativeUiTest" time="1.266"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

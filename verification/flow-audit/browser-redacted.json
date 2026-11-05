@@ -1,0 +1,228 @@
+[
+  {
+    "width": 390,
+    "path": "/auth",
+    "http": 200,
+    "title": "ورود به حساب کاربری | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/auth/register",
+    "http": 200,
+    "title": "ثبت‌نام و عضویت رایگان | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/auth/forgot-password",
+    "http": 200,
+    "title": "بازیابی رمز عبور | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/laws",
+    "http": 200,
+    "title": "جستجوی قوانین ایران و معنی کلمات دادگاه به زبان ساده | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/calculators",
+    "http": 200,
+    "title": "هزینه تمبر شکایت در دادگاه | ۱۰ ماشین‌حساب رایگان حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/deadline",
+    "http": 200,
+    "title": "مهلت‌سنج حقوقی و یادآور تقویم | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/pricing",
+    "http": 200,
+    "title": "تعرفه مشاوره حقوقی آنلاین و تنظیم دادخواست | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/about",
+    "http": 200,
+    "title": "راهنمای سامانه ثنا و درباره حق‌سنج |",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/terms",
+    "http": 200,
+    "title": "شرایط استفاده از حق‌سنج | قوانین سرویس",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/privacy",
+    "http": 200,
+    "title": "حریم خصوصی و محرمانگی مدارک | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/contact",
+    "http": 200,
+    "title": "تماس با ما، پشتیبانی و ثبت شکایات | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/faq",
+    "http": 200,
+    "title": "سوالات متداول حقوقی و کاربری | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/guides",
+    "http": 200,
+    "title": "راهنمای قدم‌به‌قدم شکایت، مهریه، چک صیادی و ابلاغیه ثنا | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/auth",
+    "http": 200,
+    "title": "ورود به حساب کاربری | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/auth/register",
+    "http": 200,
+    "title": "ثبت‌نام و عضویت رایگان | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/auth/forgot-password",
+    "http": 200,
+    "title": "بازیابی رمز عبور | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/laws",
+    "http": 200,
+    "title": "جستجوی قوانین ایران و معنی کلمات دادگاه به زبان ساده | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/calculators",
+    "http": 200,
+    "title": "هزینه تمبر شکایت در دادگاه | ۱۰ ماشین‌حساب رایگان حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/deadline",
+    "http": 200,
+    "title": "مهلت‌سنج حقوقی و یادآور تقویم | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/pricing",
+    "http": 200,
+    "title": "تعرفه مشاوره حقوقی آنلاین و تنظیم دادخواست | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/about",
+    "http": 200,
+    "title": "راهنمای سامانه ثنا و درباره حق‌سنج |",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/terms",
+    "http": 200,
+    "title": "شرایط استفاده از حق‌سنج | قوانین سرویس",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/privacy",
+    "http": 200,
+    "title": "حریم خصوصی و محرمانگی مدارک | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/contact",
+    "http": 200,
+    "title": "تماس با ما، پشتیبانی و ثبت شکایات | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/faq",
+    "http": 200,
+    "title": "سوالات متداول حقوقی و کاربری | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1024,
+    "path": "/guides",
+    "http": 200,
+    "title": "راهنمای قدم‌به‌قدم شکایت، مهریه، چک صیادی و ابلاغیه ثنا | حق‌سنج",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "path": "/app",
+    "redirectedToAuth": false,
+    "overflow": false
+  },
+  {
+    "width": 390,
+    "path": "/app/chat",
+    "redirectedToAuth": false,
+    "overflow": false
+  },
+  {
+    "width": 390,
+    "path": "/app/account",
+    "redirectedToAuth": false,
+    "overflow": false
+  }
+]

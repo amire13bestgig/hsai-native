@@ -1,0 +1,60 @@
+{
+  "PaymentGatewayPage.jsx": [
+    "/api/plans/payment/${authority}",
+    "/api/plans/verify"
+  ],
+  "GuidesHubPage.jsx": [],
+  "ContactAndFaqPage.jsx": [
+    "/api/auth/config",
+    "/api/auth/contact"
+  ],
+  "AuthRecoveryPages.jsx": [
+    "/api/auth/email/send-verification",
+    "/api/auth/email/verify",
+    "/api/auth/password/forgot",
+    "/api/auth/password/reset"
+  ],
+  "AuthPage.jsx": [
+    "/api/auth/config"
+  ],
+  "ChatAgentPage.jsx": [
+    "/api/auth/profile",
+    "/api/auth/tickets",
+    "/api/chat/conversations",
+    "/api/chat/conversations/${id}",
+    "/api/chat/messages/${msgId}/feedback",
+    "/api/chat/messages/${msgId}/simplify",
+    "/api/documents/${printDoc.id}"
+  ],
+  "LawsExplorerPage.jsx": [
+    "/api/laws/${art.id}/relations",
+    "/api/laws/comparisons",
+    "/api/laws?${params.toString()}"
+  ],
+  "AccountSettingsPage.jsx": [
+    "/api/auth/email/send-verification",
+    "/api/auth/password/change",
+    "/api/auth/phone/send-code",
+    "/api/auth/phone/verify-code",
+    "/api/auth/profile",
+    "/api/auth/tickets",
+    "/api/plans/cancel",
+    "/api/plans/my-billing",
+    "/api/plans/resume"
+  ],
+  "ArticlePage.jsx": [
+    "/api/laws/article/${encodeURIComponent(lawSlug)}/${encodeURIComponent(articleNum)}"
+  ],
+  "CalculatorsPage.jsx": [
+    "/api/laws/calculate"
+  ],
+  "DeadlinePage.jsx": [],
+  "LandingPage.jsx": [
+    "/api/plans"
+  ],
+  "PricingPage.jsx": [
+    "/api/plans"
+  ],
+  "NotFoundPage.jsx": [],
+  "AboutAndTermsPage.jsx": []
+}

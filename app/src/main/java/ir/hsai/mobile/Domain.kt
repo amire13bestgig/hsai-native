@@ -16,6 +16,7 @@ Calculator("inheritance_tax","مالیات بر ارث",listOf(FormField("heir_c
 Calculator("capital_gains_tax","مالیات عایدی سرمایه",listOf(FormField("asset_type","نوع دارایی",listOf("real_estate" to "ملک و مستغلات","vehicle" to "خودرو","gold_fx" to "طلا، سکه و ارز"),false,false),FormField("buy_price_toman","قیمت خرید",listOf(),true,false),FormField("sell_price_toman","قیمت فروش",listOf(),true,false),FormField("holding_months","مدت نگهداری (ماه)",listOf(),true,false),FormField("inflation_pct","درصد تورم",listOf(),true,false),FormField("is_primary_residence","محل سکونت اصلی",listOf("false" to "خیر","true" to "بله"),false,true))),
 )
  val labels=mapOf(
+"calc_card" to "خلاصه محاسبه", "citizen_guide" to "راهنمای عملی", "sana_reassurance" to "راهنمای ابلاغیه", "red_flags" to "ریسک‌های قرارداد", "practical_tips" to "نکات کاربردی", "quick_summary" to "خلاصه",
 "type" to "نوع محاسبه",
 "claim_category" to "نوع دعوا",
 "claim_amount_toman" to "مبلغ خواسته",

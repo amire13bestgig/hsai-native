@@ -19,4 +19,11 @@ class ApiContractTest {
  @Test fun outOfRangeLocalPageIsEmpty(){assertTrue(ApiContract.page(JSONObject().put("items",JSONArray()),99,20).items.isEmpty())}
  @Test fun stageAcceptsMessageFallback(){assertEquals("در حال بررسی",ApiContract.stageTitle(JSONObject().put("message","در حال بررسی")))}
  @Test fun structuredStreamErrorDoesNotLeakRawJson(){assertEquals("خطای روشن",ApiContract.streamError(JSONObject().put("error",JSONObject().put("code","E").put("message","خطای روشن"))))}
+ @Test fun auditV53AllowsOnlyOwnedScannerDeleteRoute(){assertTrue(ApiRoutes.allowed("/scanner/123","DELETE"));assertFalse(ApiRoutes.allowed("/scanner/123","PUT"));assertFalse(ApiRoutes.allowed("/scanner/all","DELETE"))}
+ @Test fun auditQuickQuestionsUseTopLevelVerificationAndIntakeFallback(){
+ val q=JSONArray().put(JSONObject().put("label","پرسش ساختگی"))
+ assertEquals(1,ApiContract.quickQuestions(JSONObject().put("quick_questions",q)).size)
+ assertEquals(1,ApiContract.quickQuestions(JSONObject().put("verification",JSONObject().put("quick_questions",q))).size)
+ assertEquals(1,ApiContract.quickQuestions(JSONObject().put("verification",JSONObject().put("intake",JSONObject().put("questions",q)))).size)
+ }
 }

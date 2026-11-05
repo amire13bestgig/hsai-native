@@ -25,7 +25,7 @@ import java.io.File
 class NativeUiTest {
  @get:Rule val compose=createAndroidComposeRule<MainActivity>()
  private val vm get()=ViewModelProvider(compose.activity)[AppViewModel::class.java]
- private fun ready(){
+ private fun ready(login:Boolean=true){
   compose.waitUntil(15000){vm.state.value.initialized}
   // Every subsequent UI action uses a local in-process HTTP response, never private production data.
   val http=okhttp3.OkHttpClient.Builder().addInterceptor { chain ->
@@ -34,6 +34,7 @@ class NativeUiTest {
   }.build()
   val field=ApiClient::class.java.getDeclaredField("http");field.isAccessible=true;field.set(vm.api,http)
   vm.api.token="test-only-not-a-real-session"
+  if(login)compose.runOnIdle{vm.loginRequired(Screen.CHAT)}
   compose.waitForIdle()
  }
  @Suppress("UNCHECKED_CAST") private fun state(value:AppUiState) {
@@ -73,7 +74,7 @@ class NativeUiTest {
   ready();screenshot("$prefix-login")
   Screen.entries.forEach { screen->state(fixture(screen));compose.onRoot().assertExists();screenshot("$prefix-${screen.name.lowercase()}") }
  }
- @Test fun loginIsFirstAndWorkspaceHidden() {
+ @Test fun explicitLoginShowsFormAndHidesWorkspace() {
   ready();compose.onNodeWithText("ورود به میز کار حق‌سنج").assertIsDisplayed()
   compose.onNodeWithContentDescription("منوی اصلی").assertDoesNotExist()
   compose.onNodeWithContentDescription("آدرس ایمیل یا شماره موبایل").performTextInput("sample@example.com")
@@ -120,7 +121,8 @@ class NativeUiTest {
   assertEquals(WorkspaceLayout.COMPACT,workspaceLayout(599f))
   assertEquals(WorkspaceLayout.RAIL,workspaceLayout(600f))
   assertEquals(WorkspaceLayout.RAIL,workspaceLayout(999f))
-  assertEquals(WorkspaceLayout.SIDEBAR,workspaceLayout(1000f))
+  assertEquals(WorkspaceLayout.RAIL,workspaceLayout(1000f))
+  assertEquals(WorkspaceLayout.SIDEBAR,workspaceLayout(1024f))
  }
  private fun auditDialogs(prefix:String) {
   ready()
@@ -200,4 +202,189 @@ data: {"answer":"متن پاسخ","conversation_id":42,"message_id":77,"subscrip
   assertEquals(Screen.LAWS,vm.state.value.screen);assertNull(vm.state.value.result)
  }
 
+ @Test @Config(qualifiers="w1024dp-h1366dp-mdpi") fun v53LoginHasDesktopShowcase() {
+  ready();compose.onNodeWithText("میز کار اختصاصی حقوقی شما،").assertIsDisplayed();screenshot("v53-login-desktop")
+ }
+ @Test fun v53MobileLoginHidesDesktopShowcase() {
+  ready();compose.onNodeWithText("میز کار اختصاصی حقوقی شما،").assertDoesNotExist()
+ }
+ @Test fun v53AuthMethodSelectorRespectsServerConfig() {
+  ready();state(AppUiState(initialized=true,config=JSONObject().put("sms_otp_enabled",true)))
+  compose.onNodeWithText("ورود پیامکی").performScrollTo().performClick()
+  compose.onNodeWithContentDescription("شماره موبایل").assertExists();screenshot("v53-login-sms")
+ }
+ @Test fun v53GlossaryUsesWebsiteContentAndLocalSearch() {
+  ready();state(fixture(Screen.LAWS))
+  compose.onNodeWithText("معنی کلمات دادگاه").performScrollTo().performClick()
+  compose.onNodeWithText("فرهنگ لغات خودمانی دادگاه و ابلاغیه ثنا").assertExists()
+  compose.onNode(hasSetTextAction()).performTextInput("اظهارنامه")
+  compose.onNodeWithText("اظهارنامه قضایی").assertExists();compose.onNodeWithText("خواهان و خوانده").assertDoesNotExist();screenshot("v53-glossary")
+ }
+ @Test fun v53SidebarConversationDoesNotInvalidateItsResponse() {
+  ready();state(fixture(Screen.CHAT).copy(sidebarHistory=listOf(JSONObject().put("id",42).put("title","گفتگوی آزمایشی سایدبار"))))
+  stub("""{"ok":true,"data":{"messages":[{"role":"assistant","content":"پاسخ انتخاب‌شده از سایدبار","id":77}]}}""")
+  compose.onNodeWithContentDescription("منوی اصلی").performClick()
+  compose.onNodeWithText("گفتگوی آزمایشی سایدبار").performScrollTo().performClick()
+  compose.waitUntil(10000){vm.state.value.messages.any{it.text=="پاسخ انتخاب‌شده از سایدبار"}}
+  compose.onNodeWithText("پاسخ انتخاب‌شده از سایدبار").assertExists()
+ }
+ @Test fun v53UserAndAssistantBubblesRemainNative() {
+  ready();state(fixture(Screen.CHAT).copy(messages=listOf(ChatMessage("user","متن پیام کاربر برای بررسی ظاهر"),ChatMessage("assistant","**پاسخ مستند آزمایشی**\nاین متن فقط برای بررسی رابط است."))))
+  screenshot("v53-chat-bubbles")
+ }
+ @Test @Config(qualifiers="w1024dp-h1366dp-mdpi") fun v53PopularPlanUsesFeaturedSurface() {
+  ready();val fixture=fixture(Screen.PLANS);fixture.items.first().put("is_popular",true)
+  state(fixture.copy(items=fixture.items.take(1)));screenshot("v53-popular-plan")
+ }
+ @Test fun v53PasswordStrengthMatchesWebsiteScoring() {
+  assertEquals(0,passwordStrengthScore("abc"));assertEquals(1,passwordStrengthScore("abcdefgh"));assertEquals(4,passwordStrengthScore("Abcdefghijk1!"))
+ }
+
+
+ @Test fun auditLawBrowseDoesNotRequireSearchText() {
+  ready();state(fixture(Screen.LAWS).copy(items=emptyList()))
+  stub("""{"ok":true,"data":{"items":[{"id":9,"law_name":"قانون مرور آزمایشی","article_number":"۱","official_text":"متن مرور"}],"pagination":{"page":1,"limit":15,"total":1}}}""")
+  compose.runOnIdle{vm.refresh()};compose.waitUntil(10000){vm.state.value.items.any{it.optLong("id")==9L}}
+  assertEquals("",vm.state.value.lawQuery)
+ }
+ @Test fun auditCollectionOpensItsArticles() {
+  ready();state(fixture(Screen.LAWS).copy(lawTab="collections"))
+  stub("""{"ok":true,"data":{"items":[{"id":9,"law_slug":"sample-law","official_text":"متن مجموعه"}]}}""")
+  compose.runOnIdle{vm.openLawCollection("sample-law")}
+  compose.waitUntil(10000){!vm.state.value.loading};assertEquals("search",vm.state.value.lawTab);assertEquals("sample-law",vm.state.value.lawSlug)
+  assertEquals(9L,vm.state.value.items.first().optLong("id"))
+ }
+ @Test fun auditGeneratedDocumentOpensActualContentNotList() {
+  ready();state(fixture(Screen.CHAT).copy(messages=listOf(ChatMessage("assistant","پیش‌نویس آماده",document=JSONObject().put("title","سند همین گفتگو").put("content","متن اختصاصی همین سند")))))
+  compose.onNodeWithText("مشاهده برگه قضایی آماده").performClick()
+  compose.onNodeWithText("متن اختصاصی همین سند").assertExists()
+  compose.onNodeWithText("دریافت Word").assertDoesNotExist()
+  assertEquals(Screen.CHAT,vm.state.value.screen)
+ }
+ @Test fun auditDeletingConversationRemovesSidebarEntry() {
+  ready();val item=JSONObject().put("id",42).put("title","گفتگوی قابل حذف")
+  state(fixture(Screen.CHAT).copy(conversationId=42,sidebarHistory=listOf(item)))
+  stub("""{"ok":true,"data":{"deleted":true}}""")
+  compose.runOnIdle{vm.delete("consultations",42)};compose.waitUntil(10000){!vm.state.value.posting}
+  assertTrue(vm.state.value.sidebarHistory.isEmpty());assertNull(vm.state.value.conversationId)
+ }
+ @Test fun auditSwitchingCalculatorAwayAndBackDiscardsOldResult() {
+  ready();state(fixture(Screen.CALCULATORS));val gate=java.util.concurrent.CountDownLatch(1)
+  stub("""{"ok":true,"data":{"first_stage_fee_toman":999}}""",gate=gate)
+  compose.runOnIdle{vm.compute(mapOf("claim_amount_toman" to "1000000","claim_category" to "financial"));vm.calculator("mehrieh");vm.calculator("court_fee")}
+  gate.countDown();compose.waitUntil(10000){!vm.state.value.posting};assertNull(vm.state.value.result)
+ }
+ @Test fun auditArticleDetailCanSeedQuestionWithoutSendingIt() {
+  ready();state(fixture(Screen.LAWS))
+  compose.runOnIdle{vm.askAboutArticle(JSONObject().put("article_number","۱۲").put("law_name","قانون نمونه"))}
+  assertEquals(Screen.CHAT,vm.state.value.screen);assertTrue(vm.state.value.draft.contains("۱۲ قانون نمونه"));assertTrue(vm.state.value.messages.isEmpty())
+ }
+ @Test fun auditStopStreamUnlocksComposerAndDoesNotEnableBlindRetry() {
+  ready();state(fixture(Screen.CHAT).copy(streaming=true));val gate=java.util.concurrent.CountDownLatch(1)
+  stub("event: done\ndata: {\"answer\":\"نباید دریافت شود\"}\n\n",stream=true,gate=gate)
+  compose.runOnIdle{vm.setDraft("پرسش ساختگی");vm.sendChat()}
+  compose.waitUntil(10000){vm.state.value.stage.isNotBlank()}
+  compose.runOnIdle{vm.stopChat()};gate.countDown();compose.waitUntil(10000){!vm.state.value.posting}
+  assertNull(vm.state.value.failedChat);assertEquals("",vm.state.value.stage)
+ }
+
+ @Test fun auditLatestAssistantQuestionsAreNativeAndSelectable() {
+  ready();val question=JSONObject().put("question","آیا قرارداد کتبی دارید؟").put("options",org.json.JSONArray().put("بله دارم").put("خیر ندارم"))
+  state(fixture(Screen.CHAT).copy(messages=listOf(ChatMessage("assistant","برای ادامه پاسخ بدهید",questions=listOf(question)))))
+  compose.onNodeWithText("آیا قرارداد کتبی دارید؟").assertExists()
+  compose.onNodeWithText("بله دارم").performScrollTo().performClick()
+  compose.onNodeWithText("ارسال پاسخ پرسش‌ها").assertIsEnabled()
+  assertEquals(1,vm.state.value.messages.size)
+ }
+
+ private fun recordRequests(body:String):java.util.concurrent.CopyOnWriteArrayList<Pair<String,JSONObject>> {
+  val requests=java.util.concurrent.CopyOnWriteArrayList<Pair<String,JSONObject>>()
+  val http=okhttp3.OkHttpClient.Builder().addInterceptor { chain ->
+   val r=chain.request();val buffer=okio.Buffer();r.body?.writeTo(buffer)
+   requests.add((r.method+" "+r.url.encodedPath) to runCatching{JSONObject(buffer.readUtf8())}.getOrDefault(JSONObject()))
+   okhttp3.Response.Builder().request(r).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("local audit fixture")
+    .body(body.toResponseBody("application/json".toMediaType())).build()
+  }.build()
+  val f=ApiClient::class.java.getDeclaredField("http");f.isAccessible=true;f.set(vm.api,http);return requests
+ }
+ @Test fun auditTicketCreateAndReplyUseOfficialBodies() {
+  ready();state(fixture(Screen.TICKETS));val requests=recordRequests("""{"ok":true,"data":{"items":[]}}""")
+  compose.runOnIdle{vm.createTicket("موضوع آزمایشی","پیام آزمایشی")};compose.waitUntil(10000){!vm.state.value.posting}
+  val create=requests.first{it.first=="POST /api/v1/tickets"}.second
+  assertEquals("موضوع آزمایشی",create.getString("subject"));assertEquals("پیام آزمایشی",create.getString("message"))
+  compose.runOnIdle{vm.replyTicket(42,"پاسخ ساختگی")};compose.waitUntil(10000){!vm.state.value.posting}
+  assertEquals("پاسخ ساختگی",requests.first{it.first=="POST /api/v1/tickets/42/reply"}.second.getString("message"))
+ }
+ @Test fun auditEmptyTicketIsRejectedBeforeNetwork() {
+  ready();state(fixture(Screen.TICKETS));val requests=recordRequests("""{"ok":true,"data":{}}""")
+  compose.runOnIdle{vm.createTicket("","")};compose.waitUntil(10000){!vm.state.value.posting}
+  assertTrue(requests.isEmpty());assertTrue(vm.state.value.error.isNotBlank())
+ }
+ @Test fun auditProfilePayloadAndReadbackAreConsistent() {
+  ready();state(fixture(Screen.ACCOUNT));val requests=recordRequests("""{"ok":true,"data":{"user":{"full_name":"نام ساختگی جدید","email":"mock@example.com"},"subscription":{}}}""")
+  compose.runOnIdle{vm.saveProfile("نام ساختگی جدید","mock@example.com","")}
+  compose.waitUntil(10000){!vm.state.value.posting&&!vm.state.value.loading}
+  val body=requests.first{it.first=="PATCH /api/v1/me"}.second
+  assertEquals("mock@example.com",body.getString("email"));assertEquals("نام ساختگی جدید",vm.state.value.user.getString("full_name"))
+ }
+ @Test fun auditPasswordMismatchDoesNotTouchServer() {
+  ready();state(fixture(Screen.ACCOUNT));val requests=recordRequests("""{"ok":true,"data":{}}""")
+  compose.runOnIdle{vm.changePassword("mock-old","mock-new-password","different")};compose.waitUntil(10000){!vm.state.value.posting}
+  assertTrue(requests.isEmpty());assertTrue(vm.state.value.error.isNotBlank())
+ }
+ @Test fun auditPasswordChangeChecksCurrentPasswordBeforePatchLocally() {
+  ready();state(fixture(Screen.ACCOUNT));val requests=recordRequests("""{"ok":true,"data":{}}""")
+  compose.runOnIdle{vm.changePassword("mock-old","mock-new-password","mock-new-password")};compose.waitUntil(10000){!vm.state.value.posting}
+  assertEquals("POST /api/v1/auth/login",requests[0].first);assertEquals("PATCH /api/v1/me",requests[1].first)
+  assertEquals("mock-new-password",requests[1].second.getString("new_password"))
+ }
+ @Test fun auditCheckoutRejectsInsecureGatewayWithoutPendingPayment() {
+  ready();state(fixture(Screen.PLANS));recordRequests("""{"ok":true,"data":{"gateway_url":"http://insecure.example.test/pay","authority":"mock-authority"}}""")
+  compose.runOnIdle{vm.checkout(1,"")};compose.waitUntil(10000){!vm.state.value.posting}
+  assertFalse(vm.pendingPayment);assertTrue(vm.state.value.error.contains("امن"))
+ }
+ @Test fun auditPaymentLookupDisplaysServerStateNotAssumedSuccess() {
+  ready();state(fixture(Screen.PLANS));val requests=recordRequests("""{"ok":true,"data":{"status":"pending"}}""")
+  compose.runOnIdle{vm.verifyPayment("mock-authority")};compose.waitUntil(10000){!vm.state.value.posting}
+  assertEquals("pending",vm.state.value.dialog!!.data.getString("status"));assertTrue(requests.any{it.first=="GET /api/v1/billing/payments/mock-authority"})
+ }
+
+ @Test fun guestSeesChatBeforeAnyLoginPrompt() {
+  ready(login=false)
+  assertFalse(vm.state.value.authenticated);assertTrue(vm.state.value.entryComplete);assertEquals(Screen.CHAT,vm.state.value.screen)
+  compose.onNodeWithContentDescription("ارسال پیام").assertExists()
+  compose.onNodeWithText("ورود به میز کار حق‌سنج").assertDoesNotExist();screenshot("guest-chat-first")
+ }
+ @Test fun guestSendOpensLoginWithoutSendingOrLosingDraft() {
+  ready(login=false);val requests=recordRequests("""{"ok":true,"data":{}}""")
+  compose.onNode(hasSetTextAction()).performTextInput("پرسش مهمان برای ادامه پس از ورود")
+  compose.onNodeWithContentDescription("ارسال پیام").performClick()
+  compose.onNodeWithText("ورود به میز کار حق‌سنج").assertExists()
+  assertEquals("پرسش مهمان برای ادامه پس از ورود",vm.state.value.draft);assertTrue(vm.state.value.messages.isEmpty());assertTrue(requests.isEmpty())
+  screenshot("guest-send-login")
+ }
+ @Test fun guestCanReturnFromLoginAndKeepMessage() {
+  ready(login=false);compose.runOnIdle{vm.setDraft("پیش‌نویس محفوظ");vm.sendChat()}
+  compose.onNodeWithText("بازگشت به چت").performClick()
+  compose.onNodeWithText("پیش‌نویس محفوظ").assertExists();assertTrue(vm.state.value.entryComplete);assertFalse(vm.state.value.authenticated)
+ }
+ @Test fun guestLoginReturnsToChatButDoesNotAutoSend() {
+  ready(login=false);val requests=recordRequests("""{"ok":true,"data":{"token":"local-fixture-token","user":{"full_name":"کاربر ساختگی"},"items":[]}}""")
+  compose.runOnIdle{vm.setDraft("پیام آماده ارسال");vm.sendChat();vm.authenticate(false,mapOf("identifier" to "mock@example.com","password" to "mock-only-password"))}
+  compose.waitUntil(10000){!vm.state.value.posting&&vm.state.value.authenticated}
+  assertTrue(vm.state.value.entryComplete);assertEquals(Screen.CHAT,vm.state.value.screen);assertEquals("پیام آماده ارسال",vm.state.value.draft)
+  assertTrue(requests.none{it.first=="POST /api/v1/chat"});assertTrue(vm.state.value.messages.isEmpty())
+ }
+ @Test fun guestPrivateNavigationRequiresLoginButPublicToolsDoNot() {
+  ready(login=false);recordRequests("""{"ok":true,"data":{"items":[]}}""")
+  compose.runOnIdle{vm.navigate(Screen.CALCULATORS)};assertTrue(vm.state.value.entryComplete)
+  compose.runOnIdle{vm.navigate(Screen.DOCUMENTS)};assertFalse(vm.state.value.entryComplete)
+  compose.onNodeWithText("ورود به میز کار حق‌سنج").assertExists()
+ }
+ @Test fun guestBackFromLoginRestoresChatAndEmptySendDoesNotPrompt() {
+  ready(login=false);compose.runOnIdle{vm.sendChat()};assertTrue(vm.state.value.entryComplete)
+  compose.runOnIdle{vm.loginRequired(Screen.CHAT)}
+  compose.runOnIdle{compose.activity.onBackPressedDispatcher.onBackPressed()}
+  assertEquals(Screen.CHAT,vm.state.value.screen);assertTrue(vm.state.value.entryComplete)
+ }
 }

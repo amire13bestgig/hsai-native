@@ -1,0 +1,11 @@
+{
+  "reference": "hsai_src_v53.zip",
+  "sha256": "9b3b0544600679c8199c1fbf0907294d690cd6fc764715f881f34ad3d4a4c576",
+  "tests": 79,
+  "passed": 76,
+  "skipped": 3,
+  "failures": 0,
+  "lint_errors": 0,
+  "lint_warnings": 6,
+  "apk_built": false
+}
