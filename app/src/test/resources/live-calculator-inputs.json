@@ -1,0 +1,76 @@
+[
+  {
+    "type": "court_fee",
+    "claim_amount_toman": 150000000,
+    "claim_category": "financial"
+  },
+  {
+    "type": "mehrieh",
+    "coin_count": 110,
+    "coin_price_toman": 100000000
+  },
+  {
+    "type": "delay_damage",
+    "principal_toman": 100000000,
+    "due_year": 1403,
+    "due_month": 1,
+    "pay_year": 1405,
+    "pay_month": 8,
+    "doc_kind": "check"
+  },
+  {
+    "type": "inheritance",
+    "estate_value_toman": 1000000000,
+    "debts_toman": 0,
+    "will_toman": 0,
+    "spouse_type": "wife",
+    "has_father": false,
+    "has_mother": false,
+    "sons_count": 1,
+    "daughters_count": 1,
+    "has_siblings": false
+  },
+  {
+    "type": "labor",
+    "monthly_base_salary_toman": 12000000,
+    "months_worked": 12,
+    "unused_leave_days": 0,
+    "children_count": 0
+  },
+  {
+    "type": "lawyer_fee",
+    "claim_amount_toman": 150000000,
+    "claim_category": "financial",
+    "channel": "court"
+  },
+  {
+    "type": "diyeh",
+    "full_diyeh_toman": 1600000000,
+    "injury_type": "limb",
+    "injury_percent": 10,
+    "is_haram_month": false
+  },
+  {
+    "type": "inheritance_tax",
+    "heir_class": 1,
+    "bank_deposits_toman": 500000000,
+    "real_estate_tax_value_toman": 800000000,
+    "vehicles_value_toman": 600000000,
+    "stocks_value_toman": 0
+  },
+  {
+    "type": "execution_fee",
+    "execution_amount_toman": 100000000,
+    "channel": "court",
+    "settled_amicably": false
+  },
+  {
+    "type": "capital_gains_tax",
+    "asset_type": "real_estate",
+    "buy_price_toman": 1000000000,
+    "sell_price_toman": 2000000000,
+    "holding_months": 24,
+    "inflation_pct": 30,
+    "is_primary_residence": false
+  }
+]

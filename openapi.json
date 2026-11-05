@@ -1,0 +1,3177 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "حق‌سنج — وب‌سرویس اپلیکیشن (HSAI Application API)",
+    "version": "2.1.0",
+    "summary": "وب‌سرویس رسمی اپلیکیشن موبایل و کلاینت‌های خارجی حق‌سنج",
+    "description": "وب‌سرویس رسمی **حق‌سنج** برای ساخت اپلیکیشن موبایل (Flutter، React Native، Kotlin، Swift) و اتصال سرویس‌های خارجی.\n\n**معماری پیشنهادی:** یک صفحهٔ چت ساده بسازید و همهٔ پیام‌ها را به `POST /api/v1/chat` یا `POST /api/v1/chat/stream` بفرستید؛\nسرور خودش نوع نیاز را تشخیص می‌دهد و در پس‌زمینه جست‌وجو در بانک قوانین (۶۶۲ قانون / ۲۸٬۳۶۰ ماده)،\nمحاسبه‌گرهای قضایی، تنظیم اوراق قضایی A4 و تحلیل ابلاغیه را اجرا می‌کند.\n\n**احراز هویت:** توکن کاربر (`Authorization: Bearer <JWT>`) یا کلید اپلیکیشن (`X-API-Key: dk_live_...`).\n\n**قواعد پاسخ:** همهٔ پاسخ‌ها پوشش `{ ok, data }` و خطاها پوشش `{ ok: false, error: { code, message } }` دارند.\n\n> دسترسی به خود این فایل استاندارد و صفحهٔ مستندات، فقط با نقش مدیر امکان‌پذیر است.",
+    "contact": {
+      "name": "پشتیبانی حق‌سنج",
+      "url": "https://hsai.ir/contact"
+    },
+    "license": {
+      "name": "استفادهٔ اختصاصی — حق‌سنج",
+      "identifier": "Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://hsai.ir/api/v1",
+      "description": "محیط تولید (Production)"
+    },
+    {
+      "url": "http://localhost:3000/api/v1",
+      "description": "محیط توسعهٔ محلی"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "سلامت سرویس و تنظیمات اولیهٔ اپ"
+    },
+    {
+      "name": "Auth",
+      "description": "ثبت‌نام، ورود، کد یک‌بارمصرف و تمدید توکن"
+    },
+    {
+      "name": "Profile",
+      "description": "پروفایل کاربر و وضعیت اشتراک"
+    },
+    {
+      "name": "Chat",
+      "description": "چت یکپارچهٔ هوشمند (مسیر اصلی اپلیکیشن)"
+    },
+    {
+      "name": "Consultations",
+      "description": "تاریخچهٔ گفتگوها، پیام‌ها و بازخورد"
+    },
+    {
+      "name": "Documents",
+      "description": "تنظیم و مدیریت اوراق قضایی و قراردادها"
+    },
+    {
+      "name": "Scanner",
+      "description": "تحلیل ابلاغیه، قرارداد و برگهٔ قضایی"
+    },
+    {
+      "name": "Deadlines",
+      "description": "مهلت‌های قانونی و یادآورهای پرونده"
+    },
+    {
+      "name": "Laws",
+      "description": "بانک قوانین، آرای وحدت رویه و نظریات مشورتی"
+    },
+    {
+      "name": "Calculators",
+      "description": "محاسبه‌گرهای قضایی سرور-ساید"
+    },
+    {
+      "name": "Billing",
+      "description": "پلن‌ها، تخفیف، پرداخت و تراکنش‌ها"
+    },
+    {
+      "name": "Support",
+      "description": "تیکت پشتیبانی"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "توکن نشست کاربر (اعتبار ۳۰ روز، قابل تمدید با `POST /auth/refresh`)"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "کلید اپلیکیشن با پیشوند `dk_live_` — ساخت و ابطال از پنل مدیریت"
+      }
+    },
+    "parameters": {
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "description": "شمارهٔ صفحه"
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "description": "تعداد آیتم در هر صفحه (حداکثر ۵۰)"
+      },
+      "IdPath": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "شناسهٔ عددی"
+      }
+    },
+    "responses": {
+      "BadRequestError": {
+        "description": "درخواست نامعتبر یا اعتبارسنجی ناقص",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "توکن نامعتبر یا منقضی، یا کلید وب‌سرویس نامعتبر",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "PaymentRequiredError": {
+        "description": "اشتراک فعال نیست یا سقف مصرف (گفتگو/پیام/سند) پر شده است",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "دسترسی مجاز نیست یا حساب مسدود است",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "منبع درخواستی یافت نشد",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ConflictError": {
+        "description": "تعارض داده (شماره یا ایمیل تکراری)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "RateLimitedError": {
+        "description": "تعداد درخواست بیش از حد مجاز",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "خطای غیرمنتظرهٔ سرور",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "ok",
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "examples": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHORIZED",
+                  "TOKEN_EXPIRED",
+                  "NO_SUBSCRIPTION",
+                  "MESSAGE_LIMIT_REACHED",
+                  "NOT_FOUND"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "پیام فارسی آمادهٔ نمایش به کاربر"
+              }
+            }
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "example": "09121234567"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "national_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "admin"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Subscription": {
+        "type": "object",
+        "properties": {
+          "plan_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "expired",
+              "canceled",
+              "trial"
+            ]
+          },
+          "days_remaining": {
+            "type": "integer"
+          },
+          "conversations_used": {
+            "type": "integer"
+          },
+          "conversations_limit": {
+            "type": "integer"
+          },
+          "messages_used": {
+            "type": "integer"
+          },
+          "messages_limit": {
+            "type": "integer"
+          },
+          "documents_used": {
+            "type": "integer"
+          },
+          "documents_limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "AuthPayload": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "توکن Bearer با اعتبار ۳۰ روز"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "subscription": {
+            "$ref": "#/components/schemas/Subscription"
+          }
+        }
+      },
+      "CitedArticle": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "law_name": {
+            "type": "string",
+            "example": "قانون صدور چک"
+          },
+          "article_number": {
+            "type": "string",
+            "example": "۳"
+          },
+          "official_text": {
+            "type": "string"
+          },
+          "plain_explanation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PrintableDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "doc_type": {
+            "type": "string",
+            "enum": [
+              "دادخواست",
+              "اظهارنامه",
+              "شکواییه",
+              "لایحه دفاعیه",
+              "قرارداد"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "description": "متن رسمی آمادهٔ چاپ A4"
+          }
+        }
+      },
+      "Verification": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "rag",
+              "calculator_and_rag",
+              "document",
+              "scanner"
+            ]
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "printable_document": {
+            "$ref": "#/components/schemas/PrintableDocument"
+          },
+          "calculator": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "نتیجهٔ محاسبه‌گر در صورت اجرا"
+          }
+        }
+      },
+      "ChatRequest": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "conversation_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "شناسهٔ گفتگو؛ برای گفتگوی جدید `null` بفرستید و مقدار برگشتی را در پیام‌های بعدی استفاده کنید"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "متن پیام کاربر"
+          },
+          "image_base64": {
+            "type": "string",
+            "description": "تصویر اختیاری برگه (Data URL کامل: `data:image/jpeg;base64,...`)"
+          }
+        }
+      },
+      "ChatResponse": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "integer"
+          },
+          "message_id": {
+            "type": "integer"
+          },
+          "answer": {
+            "type": "string",
+            "description": "پاسخ فارسی در قالب Markdown"
+          },
+          "cited_articles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CitedArticle"
+            }
+          },
+          "verification": {
+            "$ref": "#/components/schemas/Verification"
+          },
+          "subscription": {
+            "$ref": "#/components/schemas/Subscription"
+          }
+        }
+      },
+      "StreamEvent": {
+        "type": "object",
+        "description": "رویداد SSE. نام رویداد در خط `event:` و دادهٔ JSON در خط `data:` می‌آید. رویدادها: stage، articles، delta، done، error.",
+        "properties": {
+          "stage": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              }
+            }
+          },
+          "articles": {
+            "type": "object",
+            "properties": {
+              "articles": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CitedArticle"
+                }
+              }
+            }
+          },
+          "delta": {
+            "type": "object",
+            "properties": {
+              "chunk": {
+                "type": "string"
+              }
+            }
+          },
+          "done": {
+            "type": "object",
+            "properties": {
+              "assistant_message": {
+                "type": "object"
+              },
+              "conversation_id": {
+                "type": "integer"
+              }
+            }
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Consultation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "messages_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "cited_articles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CitedArticle"
+            }
+          },
+          "feedback": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "like",
+              "dislike",
+              null
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LegalDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "doc_type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Deadline": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "تاریخ مهلت (میلادی ISO یا شمسی، همان‌طور که ارسال شده)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "done",
+              "missed"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Ticket": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "answered",
+              "closed"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LawArticle": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "law_slug": {
+            "type": "string"
+          },
+          "law_name": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "statute",
+              "judiciary_bylaw",
+              "precedent",
+              "case_law",
+              "fiqh",
+              "advisory"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "article_number": {
+            "type": "string"
+          },
+          "official_text": {
+            "type": "string"
+          },
+          "plain_explanation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Plan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "slug": {
+            "type": "string",
+            "example": "pro-monthly"
+          },
+          "name": {
+            "type": "string",
+            "example": "اشتراک حرفه‌ای ماهانه"
+          },
+          "description": {
+            "type": "string"
+          },
+          "billing_cycle": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "yearly"
+            ]
+          },
+          "duration_days": {
+            "type": "integer",
+            "example": 30
+          },
+          "price_toman": {
+            "type": "integer",
+            "example": 490000
+          },
+          "original_price_toman": {
+            "type": "integer",
+            "example": 590000
+          },
+          "consultation_limit": {
+            "type": "integer",
+            "example": 60
+          },
+          "message_limit": {
+            "type": "integer",
+            "example": 600
+          },
+          "document_limit": {
+            "type": "integer",
+            "example": 25
+          },
+          "features_json": {
+            "type": "string",
+            "description": "آرایهٔ JSON از امکانات پلن"
+          }
+        }
+      },
+      "CalculatorRequest": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "court_fee",
+              "delay_damage",
+              "inheritance",
+              "mehrieh",
+              "labor",
+              "lawyer_fee",
+              "diyeh",
+              "inheritance_tax",
+              "execution_fee",
+              "capital_gains_tax"
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "description": "پارامترهای هر ماشین‌حساب در توضیح همان نوع آمده است؛ مبالغ به تومان و تاریخ‌ها به سال/ماه شمسی هستند."
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    },
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "سلامت سرویس و آمار بانک قوانین",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "example": "healthy"
+                        },
+                        "version": {
+                          "type": "string",
+                          "example": "1.0.0"
+                        },
+                        "database": {
+                          "type": "string",
+                          "example": "connected"
+                        },
+                        "laws_count": {
+                          "type": "integer",
+                          "example": 662
+                        },
+                        "articles_count": {
+                          "type": "integer",
+                          "example": 28360
+                        },
+                        "server_time": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/config": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "تنظیمات اولیهٔ اپلیکیشن",
+        "description": "نام سامانه، شمارهٔ پشتیبانی، فعال بودن کد پیامکی، درگاه پرداخت فعال، دسته‌بندی‌ها، انواع سند، شناسهٔ ماشین‌حساب‌ها و مراحل پرونده.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "ثبت‌نام با شمارهٔ موبایل و رمز عبور",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "full_name",
+                  "phone",
+                  "password"
+                ],
+                "properties": {
+                  "full_name": {
+                    "type": "string",
+                    "example": "سارا محمدی"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "example": "09121234567"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ثبت‌نام موفق و صدور توکن",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthPayload"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ConflictError"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "ورود با موبایل/ایمیل و رمز عبور",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "identifier",
+                  "password"
+                ],
+                "properties": {
+                  "identifier": {
+                    "type": "string",
+                    "description": "شمارهٔ موبایل یا ایمیل",
+                    "example": "09121234567"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthPayload"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/auth/otp/send": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "ارسال کد یک‌بارمصرف پیامکی",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "09121234567"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "sent": {
+                          "type": "boolean"
+                        },
+                        "provider": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/auth/otp/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "تأیید کد پیامکی (ورود یا ثبت‌نام خودکار)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone",
+                  "code"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string",
+                    "example": "12345"
+                  },
+                  "full_name": {
+                    "type": "string",
+                    "description": "در ثبت‌نام خودکار"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthPayload"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitedError"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "تمدید توکن نشست",
+        "description": "هدر `Authorization: Bearer <token>` را بفرستید؛ توکن تازه با همان اعتبار ۳۰ روز برمی‌گردد.",
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthPayload"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "پروفایل کاربر، اشتراک فعال و شمارنده‌ها",
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuthPayload"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "ویرایش پروفایل یا تغییر رمز عبور",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "full_name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "national_id": {
+                    "type": "string",
+                    "example": "0012345678"
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/chat": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "چت یکپارچهٔ هوشمند (مسیر اصلی اپ)",
+        "description": "ارسال پیام یا تصویر کاربر و اجرای خودکار ابزار مناسب در پس‌زمینه:\n\n| حالت | زمان فعال‌سازی | خروجی |\n| --- | --- | --- |\n| `rag` | پرسش حقوقی | پاسخ مستند + `cited_articles` |\n| `calculator_and_rag` | پرسش محاسباتی | نتیجهٔ محاسبه + تحلیل حقوقی |\n| `document` | درخواست دادخواست/لایحه/قرارداد | `verification.printable_document` |\n| `scanner` | تصویر یا متن ابلاغیه | تحلیل ساده + ثبت مهلت |\n\nبرای پاسخ جریانی و نمایش مرحله‌به‌مرحله، از `POST /chat/stream` استفاده کنید.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChatResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequiredError"
+          }
+        }
+      }
+    },
+    "/chat/stream": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "چت جریانی (SSE)",
+        "description": "پاسخ با هدر `Content-Type: text/event-stream` و رویدادهای زیر جریان می‌یابد:\n\n- `stage` — عنوان مرحلهٔ اجرا (مثلاً «جست‌وجو در بانک قوانین»)\n- `articles` — مواد قانونی یافت‌شده\n- `delta` — تکهٔ بعدی متن پاسخ\n- `done` — پایان کار به همراه `assistant_message` و `conversation_id`\n- `error` — خطای میان‌مسیر\n\nکلاینت باید هر بلوک را با جداکنندهٔ `\\n\\n` جدا کند و خطوط `data:` را با هم بچسباند.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "جریان رویدادها",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequiredError"
+          }
+        }
+      }
+    },
+    "/ask": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "پرسش سریع تک‌مرحله‌ای",
+        "description": "بدون نیاز به مدیریت گفتگو: یک پرسش می‌فرستید و یک پاسخ می‌گیرید.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "example": "مهلت اعتراض به ابلاغیه چند روز است؟"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChatResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequiredError"
+          }
+        }
+      }
+    },
+    "/consultations": {
+      "get": {
+        "tags": [
+          "Consultations"
+        ],
+        "summary": "لیست گفتگوهای کاربر",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Consultation"
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "page": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Consultations"
+        ],
+        "summary": "ایجاد گفتگوی جدید",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Consultation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/consultations/{id}": {
+      "get": {
+        "tags": [
+          "Consultations"
+        ],
+        "summary": "پیام‌ها و استنادات یک گفتگو",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "consultation": {
+                          "$ref": "#/components/schemas/Consultation"
+                        },
+                        "messages": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Message"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Consultations"
+        ],
+        "summary": "حذف گفتگو",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "deleted": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/consultations/{id}/messages": {
+      "post": {
+        "tags": [
+          "Consultations"
+        ],
+        "summary": "ارسال پیام ادامه در گفتگوی موجود",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChatResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequiredError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/messages/{id}/feedback": {
+      "post": {
+        "tags": [
+          "Consultations"
+        ],
+        "summary": "ثبت بازخورد مثبت/منفی روی پاسخ",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "feedback"
+                ],
+                "properties": {
+                  "feedback": {
+                    "type": "string",
+                    "enum": [
+                      "like",
+                      "dislike"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "feedback": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages/{id}/simplify": {
+      "post": {
+        "tags": [
+          "Consultations"
+        ],
+        "summary": "بازنویسی ساده‌تر یک پاسخ",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Message"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "لیست اوراق قضایی کاربر",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/LegalDocument"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "تنظیم سند قضایی جدید",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "doc_type"
+                ],
+                "properties": {
+                  "doc_type": {
+                    "type": "string",
+                    "enum": [
+                      "دادخواست",
+                      "اظهارنامه",
+                      "شکواییه",
+                      "لایحه دفاعیه",
+                      "قرارداد"
+                    ]
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "details": {
+                    "type": "string",
+                    "description": "شرح موضوع و خواسته"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "متن دستی (اختیاری)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LegalDocument"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequiredError"
+          }
+        }
+      }
+    },
+    "/documents/{id}": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "متن کامل سند",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LegalDocument"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "ویرایش سند",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LegalDocument"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "حذف سند",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{id}/docx": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "دریافت سند به‌صورت فایل Word",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "فایل docx",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scanner": {
+      "get": {
+        "tags": [
+          "Scanner"
+        ],
+        "summary": "تاریخچهٔ اسکن‌ها",
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scanner/analyze": {
+      "post": {
+        "tags": [
+          "Scanner"
+        ],
+        "summary": "تحلیل ابلاغیه، قرارداد یا برگهٔ قضایی",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "description": "متن برگه"
+                  },
+                  "image_base64": {
+                    "type": "string",
+                    "description": "تصویر برگه به‌صورت Data URL"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "notice",
+                      "contract",
+                      "other"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequiredError"
+          }
+        }
+      }
+    },
+    "/laws": {
+      "get": {
+        "tags": [
+          "Laws"
+        ],
+        "summary": "جست‌وجوی تمام‌متن در بانک قوانین",
+        "description": "جست‌وجوی فارسی با وزن‌دهی متنی (FTS) روی متن رسمی و شرح ساده؛ نتایج با امتیاز مرتب می‌شوند.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "عبارت جست‌وجو",
+            "example": "چک برگشتی"
+          },
+          {
+            "name": "law_slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "محدود کردن به یک قانون"
+          },
+          {
+            "name": "source_type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "statute",
+                "judiciary_bylaw",
+                "precedent",
+                "case_law",
+                "fiqh",
+                "advisory"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/LawArticle"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "page": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            },
+                            "total_pages": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/laws/collections": {
+      "get": {
+        "tags": [
+          "Laws"
+        ],
+        "summary": "فهرست مجموعه‌های قانونی",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slug": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string"
+                              },
+                              "source_type": {
+                                "type": "string"
+                              },
+                              "article_count": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "total": {
+                          "type": "integer",
+                          "description": "تعداد مجموعه‌های فعال"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/laws/comparisons": {
+      "get": {
+        "tags": [
+          "Laws"
+        ],
+        "summary": "جدول‌های تطبیقی قوانین قدیم و جدید",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/laws/articles/{id}": {
+      "get": {
+        "tags": [
+          "Laws"
+        ],
+        "summary": "متن رسمی و شرح یک ماده",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "article": {
+                          "$ref": "#/components/schemas/LawArticle"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/calculators/compute": {
+      "post": {
+        "tags": [
+          "Calculators"
+        ],
+        "summary": "اجرای ماشین‌حساب قضایی",
+        "security": [],
+        "description": "پارامترهای هر نوع (همهٔ مبالغ به تومان، تاریخ‌ها شمسی):\n\n- `court_fee`: `claim_amount_toman`, `claim_category` (`financial|non_financial|criminal`)\n- `delay_damage`: `principal_toman`, `due_year`, `due_month`, `pay_year`, `pay_month`, `doc_kind` (`check|promissory_or_contract`)\n- `inheritance`: `estate_value_toman`, `heir_class`, `sons_count`, `daughters_count`, `wife_count`, `has_father`, `has_mother`, `will_toman`, `debts_toman`\n- `mehrieh`: `coin_count`, `coin_price_toman`\n- `labor`: `monthly_base_salary_toman`, `months_worked`, `unused_leave_days`, `children_count`\n- `lawyer_fee`: `claim_amount_toman`, `claim_category`, `channel`\n- `diyeh`: `full_diyeh_toman`, `injury_type`, `injury_percent`, `is_haram_month`\n- `inheritance_tax`: `asset_type`, `estate_value_toman`, `is_primary_residence`\n- `execution_fee`: `execution_amount_toman`, `settled_amicably`\n- `capital_gains_tax`: `asset_type`, `buy_price_toman`, `sell_price_toman`, `holding_months`, `inflation_pct`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculatorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          }
+        }
+      }
+    },
+    "/deadlines": {
+      "get": {
+        "tags": [
+          "Deadlines"
+        ],
+        "summary": "لیست مهلت‌ها",
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Deadline"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Deadlines"
+        ],
+        "summary": "ثبت مهلت جدید",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "due_date"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "اعتراض به رأی غیابی"
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "example": "1405-03-20"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Deadline"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          }
+        }
+      }
+    },
+    "/deadlines/{id}": {
+      "patch": {
+        "tags": [
+          "Deadlines"
+        ],
+        "summary": "به‌روزرسانی مهلت",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "done",
+                      "missed"
+                    ]
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Deadline"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Deadlines"
+        ],
+        "summary": "حذف مهلت",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/plans": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "پلن‌های اشتراک",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Plan"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/discount/validate": {
+      "post": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "بررسی کد تخفیف",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "plan_id",
+                  "code"
+                ],
+                "properties": {
+                  "plan_id": {
+                    "type": "integer"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          }
+        }
+      }
+    },
+    "/billing/checkout": {
+      "post": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "ایجاد تراکنش پرداخت",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "plan_id"
+                ],
+                "properties": {
+                  "plan_id": {
+                    "type": "integer"
+                  },
+                  "discount_code": {
+                    "type": "string"
+                  },
+                  "app_return_url": {
+                    "type": "string",
+                    "example": "hsai://payment/callback"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "gateway_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "آدرس صفحهٔ درگاه بانکی"
+                        },
+                        "authority": {
+                          "type": "string"
+                        },
+                        "amount_toman": {
+                          "type": "integer"
+                        },
+                        "instant_activated": {
+                          "type": "boolean",
+                          "description": "اگر مبلغ نهایی صفر شد، اشتراک همان لحظه فعال می‌شود"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          }
+        }
+      }
+    },
+    "/billing/payments": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "تاریخچهٔ تراکنش‌ها",
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/payments/{authority}": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "استعلام یک تراکنش",
+        "parameters": [
+          {
+            "name": "authority",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/tickets": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "تیکت‌های پشتیبانی",
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Ticket"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "ثبت تیکت",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "subject",
+                  "message"
+                ],
+                "properties": {
+                  "subject": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Ticket"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          }
+        }
+      }
+    },
+    "/tickets/{id}/reply": {
+      "post": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "پاسخ در تیکت",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "message"
+                ],
+                "properties": {
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "پاسخ موفق",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    }
+  }
+}

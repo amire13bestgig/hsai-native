@@ -1,0 +1,1059 @@
+{
+  "login": {
+    "status": 200,
+    "ok": true
+  },
+  "checks": [
+    {
+      "path": "/health",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.83,
+      "keys": [
+        "status",
+        "version",
+        "database",
+        "laws_count",
+        "articles_count",
+        "server_time"
+      ],
+      "error": null
+    },
+    {
+      "path": "/config",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.76,
+      "keys": [
+        "app_name",
+        "support_phone",
+        "sms_otp_enabled",
+        "sms_provider",
+        "free_trial_enabled",
+        "payment_gateway",
+        "categories",
+        "document_types",
+        "calculators",
+        "case_stages"
+      ],
+      "error": null
+    },
+    {
+      "path": "/me",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.39,
+      "keys": [
+        "user",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/consultations",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.3,
+      "keys": [
+        "items",
+        "pagination"
+      ],
+      "error": null,
+      "item_count": 2,
+      "first_item_keys": [
+        "id",
+        "user_id",
+        "title",
+        "category",
+        "urgency",
+        "status",
+        "created_at",
+        "updated_at",
+        "message_count"
+      ],
+      "pagination": {
+        "page": 1,
+        "limit": 2,
+        "total": 74
+      }
+    },
+    {
+      "path": "/documents",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.4,
+      "keys": [
+        "items"
+      ],
+      "error": null,
+      "item_count": 6,
+      "first_item_keys": [
+        "id",
+        "user_id",
+        "conversation_id",
+        "doc_type",
+        "title",
+        "content",
+        "metadata_json",
+        "verification_json",
+        "created_at",
+        "metadata"
+      ]
+    },
+    {
+      "path": "/scanner",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 1.12,
+      "keys": [
+        "items"
+      ],
+      "error": null,
+      "item_count": 4,
+      "first_item_keys": [
+        "id",
+        "user_id",
+        "scan_mode",
+        "title",
+        "raw_text",
+        "risk_score",
+        "analysis_json",
+        "created_at",
+        "analysis"
+      ]
+    },
+    {
+      "path": "/deadlines",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.31,
+      "keys": [
+        "items"
+      ],
+      "error": null,
+      "item_count": 4,
+      "first_item_keys": [
+        "id",
+        "user_id",
+        "case_title",
+        "case_number",
+        "branch_name",
+        "stage",
+        "event_type",
+        "deadline_date",
+        "checklist_json",
+        "notes",
+        "status",
+        "created_at",
+        "opponent_name",
+        "claim_amount",
+        "deadlines_json",
+        "linked_conversations_json",
+        "linked_documents_json",
+        "linked_scans_json",
+        "days_left",
+        "checklist"
+      ]
+    },
+    {
+      "path": "/billing/plans",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.2,
+      "keys": [
+        "items"
+      ],
+      "error": null,
+      "item_count": 6,
+      "first_item_keys": [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "billing_cycle",
+        "duration_days",
+        "price_toman",
+        "original_price_toman",
+        "consultation_limit",
+        "message_limit",
+        "document_limit",
+        "features_json",
+        "badge_text",
+        "is_popular",
+        "is_active",
+        "sort_order",
+        "features"
+      ]
+    },
+    {
+      "path": "/billing/payments",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.29,
+      "keys": [
+        "items"
+      ],
+      "error": null,
+      "item_count": 6,
+      "first_item_keys": [
+        "id",
+        "user_id",
+        "plan_id",
+        "subscription_id",
+        "amount_toman",
+        "discount_code",
+        "discount_amount",
+        "final_amount_toman",
+        "gateway",
+        "authority_code",
+        "ref_id",
+        "status",
+        "created_at",
+        "paid_at",
+        "app_return_url",
+        "verified_at",
+        "failure_reason",
+        "plan_name"
+      ]
+    },
+    {
+      "path": "/tickets",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.31,
+      "keys": [
+        "items"
+      ],
+      "error": null,
+      "item_count": 0,
+      "first_item_keys": []
+    },
+    {
+      "path": "/laws",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 5.94,
+      "keys": [
+        "items",
+        "pagination"
+      ],
+      "error": null,
+      "item_count": 2,
+      "first_item_keys": [
+        "id",
+        "law_slug",
+        "law_name",
+        "source_type",
+        "category",
+        "chapter",
+        "article_number",
+        "title",
+        "official_text",
+        "plain_explanation",
+        "score"
+      ],
+      "pagination": {
+        "page": 1,
+        "limit": 2,
+        "total": 7821,
+        "total_pages": 3911
+      }
+    },
+    {
+      "path": "/laws/collections",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.23,
+      "keys": [
+        "items",
+        "total"
+      ],
+      "error": null,
+      "item_count": 662,
+      "first_item_keys": [
+        "slug",
+        "title",
+        "category",
+        "source_type",
+        "article_count"
+      ]
+    },
+    {
+      "path": "/laws/comparisons",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.1,
+      "keys": [
+        "items",
+        "total"
+      ],
+      "error": null,
+      "item_count": 6,
+      "first_item_keys": [
+        "id",
+        "title",
+        "badge",
+        "oldLawTitle",
+        "newLawTitle",
+        "relatedSlugs",
+        "rows"
+      ]
+    },
+    {
+      "path": "/auth/refresh",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.38,
+      "keys": [
+        "token",
+        "token_type",
+        "expires_in",
+        "user",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.1,
+      "keys": [
+        "type",
+        "claim_category",
+        "claim_amount_toman",
+        "competent_court",
+        "first_stage_fee_toman",
+        "appeal_stage_fee_toman",
+        "supreme_stage_fee_toman",
+        "judicial_office_fee_toman",
+        "total_initial_cost_toman",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.12,
+      "keys": [
+        "type",
+        "coin_count",
+        "coin_price_toman",
+        "total_value_toman",
+        "guaranteed_coins_article_22",
+        "guaranteed_value_toman",
+        "excess_coins_subject_to_ability",
+        "nim_oshr_execution_fee_toman",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.39,
+      "keys": [
+        "type",
+        "doc_kind",
+        "principal_toman",
+        "due_year",
+        "due_month",
+        "pay_year",
+        "pay_month",
+        "cpi_due",
+        "cpi_pay",
+        "inflation_ratio",
+        "delay_damage_toman",
+        "total_payable_toman",
+        "start_basis_warning",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "estate_value_toman",
+        "net_distributable_estate_toman",
+        "effective_will_toman",
+        "rule_applied",
+        "shares",
+        "wife_land_note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "monthly_base_salary_toman",
+        "months_worked",
+        "sanavat_toman",
+        "eydi_toman",
+        "leave_redemption_toman",
+        "monthly_child_allowance_toman",
+        "total_receivable_toman",
+        "tax_note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "claim_amount_toman",
+        "total_official_fee_toman",
+        "first_stage_share_toman",
+        "appeal_stage_share_toman",
+        "lawyer_tax_stamp_first_stage_toman",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "full_diyeh_normal_toman",
+        "full_diyeh_haram_month_toman",
+        "is_haram_month",
+        "is_death",
+        "injury_percent",
+        "payable_diyeh_toman",
+        "taghliz_applied",
+        "haram_month_rule_note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.1,
+      "keys": [
+        "type",
+        "heir_class",
+        "breakdown",
+        "total_inheritance_tax_toman",
+        "exemption_note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "channel",
+        "execution_amount_toman",
+        "settled_amicably",
+        "payable_execution_fee_toman",
+        "debtor_responsibility_note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.1,
+      "keys": [
+        "type",
+        "asset_type",
+        "nominal_gain_toman",
+        "inflation_adjusted_gain_toman",
+        "applicable_rate_pct",
+        "payable_tax_toman",
+        "exemption_applied",
+        "note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/consultations",
+      "method": "POST",
+      "status": 400,
+      "ok": false,
+      "seconds": 0.2,
+      "keys": [],
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "متن پیام یا سوال را وارد کنید."
+      }
+    },
+    {
+      "path": "/documents",
+      "method": "POST",
+      "status": 400,
+      "ok": false,
+      "seconds": 0.37,
+      "keys": [],
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "موضوع سند را وارد کنید."
+      }
+    },
+    {
+      "path": "/deadlines",
+      "method": "POST",
+      "status": 400,
+      "ok": false,
+      "seconds": 0.27,
+      "keys": [],
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "عنوان پرونده الزامی است."
+      }
+    },
+    {
+      "path": "/scanner/analyze",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 18.48,
+      "keys": [
+        "id",
+        "title",
+        "mode",
+        "analysis",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/chat",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 29.87,
+      "keys": [
+        "conversation_id",
+        "message_id",
+        "answer",
+        "quick_questions",
+        "cited_articles",
+        "verification",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/consultations/107",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.39,
+      "keys": [
+        "conversation",
+        "messages"
+      ],
+      "error": null
+    },
+    {
+      "path": "/messages/272/feedback",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.31,
+      "keys": [
+        "feedback"
+      ],
+      "error": null
+    },
+    {
+      "path": "/messages/272/simplify",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 6.63,
+      "keys": [
+        "simplified_content"
+      ],
+      "error": null
+    },
+    {
+      "path": "/chat/stream",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "events": [
+        "stage",
+        "stage",
+        "stage",
+        "stage",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "delta",
+        "done"
+      ]
+    },
+    {
+      "path": "/documents",
+      "method": "POST",
+      "status": 201,
+      "ok": true,
+      "seconds": 8.12,
+      "keys": [
+        "document",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents/20",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.29,
+      "keys": [
+        "document"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents/20",
+      "method": "PUT",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.48,
+      "keys": [
+        "document"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents/20",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.33,
+      "keys": [
+        "document"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents/{test-id}/docx",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "valid_zip": true,
+      "bytes": 2800,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    {
+      "path": "/deadlines",
+      "method": "POST",
+      "status": 201,
+      "ok": true,
+      "seconds": 0.39,
+      "keys": [
+        "deadline"
+      ],
+      "error": null
+    },
+    {
+      "path": "/deadlines/6",
+      "method": "PATCH",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.39,
+      "keys": [
+        "updated"
+      ],
+      "error": null
+    },
+    {
+      "path": "/scanner/analyze",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 16.27,
+      "keys": [
+        "id",
+        "title",
+        "mode",
+        "analysis",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/deadlines",
+      "method": "GET",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.3,
+      "keys": [
+        "items"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents/20",
+      "method": "DELETE",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.29,
+      "keys": [
+        "deleted"
+      ],
+      "error": null,
+      "cleanup": true
+    },
+    {
+      "path": "/deadlines/6",
+      "method": "DELETE",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.29,
+      "keys": [
+        "deleted"
+      ],
+      "error": null,
+      "cleanup": true
+    },
+    {
+      "path": "/consultations/107",
+      "method": "DELETE",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.6,
+      "keys": [
+        "deleted"
+      ],
+      "error": null,
+      "cleanup": true
+    },
+    {
+      "path": "/documents",
+      "method": "POST",
+      "status": 201,
+      "ok": true,
+      "seconds": 13.13,
+      "keys": [
+        "document",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents/21",
+      "method": "DELETE",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.29,
+      "keys": [
+        "deleted"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "full_diyeh_normal_toman",
+        "full_diyeh_haram_month_toman",
+        "is_haram_month",
+        "is_death",
+        "injury_percent",
+        "payable_diyeh_toman",
+        "taghliz_applied",
+        "haram_month_rule_note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "full_diyeh_normal_toman",
+        "full_diyeh_haram_month_toman",
+        "is_haram_month",
+        "is_death",
+        "injury_percent",
+        "payable_diyeh_toman",
+        "taghliz_applied",
+        "haram_month_rule_note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "channel",
+        "execution_amount_toman",
+        "settled_amicably",
+        "payable_execution_fee_toman",
+        "debtor_responsibility_note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.11,
+      "keys": [
+        "type",
+        "coin_count",
+        "coin_price_toman",
+        "total_value_toman",
+        "guaranteed_coins_article_22",
+        "guaranteed_value_toman",
+        "excess_coins_subject_to_ability",
+        "nim_oshr_execution_fee_toman",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.1,
+      "keys": [
+        "type",
+        "asset_type",
+        "nominal_gain_toman",
+        "inflation_adjusted_gain_toman",
+        "applicable_rate_pct",
+        "payable_tax_toman",
+        "exemption_applied",
+        "note",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/calculators/compute",
+      "method": "POST",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.13,
+      "keys": [
+        "type",
+        "claim_category",
+        "claim_amount_toman",
+        "competent_court",
+        "first_stage_fee_toman",
+        "appeal_stage_fee_toman",
+        "supreme_stage_fee_toman",
+        "judicial_office_fee_toman",
+        "total_initial_cost_toman",
+        "legal_basis"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents",
+      "method": "POST",
+      "status": 201,
+      "ok": true,
+      "seconds": 30.98,
+      "keys": [
+        "document",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents/22",
+      "method": "DELETE",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.29,
+      "keys": [
+        "deleted"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents",
+      "method": "POST",
+      "status": 201,
+      "ok": true,
+      "seconds": 16.84,
+      "keys": [
+        "document",
+        "subscription"
+      ],
+      "error": null
+    },
+    {
+      "path": "/documents/23",
+      "method": "DELETE",
+      "status": 200,
+      "ok": true,
+      "seconds": 0.3,
+      "keys": [
+        "deleted"
+      ],
+      "error": null
+    }
+  ],
+  "cleanup": {
+    "consultations": {
+      "all_test_ids_absent": true,
+      "test_ids": [
+        107
+      ],
+      "total_after": 74
+    },
+    "documents": {
+      "all_test_ids_absent": true,
+      "test_ids": [
+        20,
+        21,
+        22,
+        23
+      ],
+      "count_after": 6
+    },
+    "deadlines": {
+      "all_test_ids_absent": true,
+      "test_ids": [
+        6
+      ],
+      "count_after": 4
+    }
+  },
+  "remaining_scanner_test_ids": [
+    8,
+    9
+  ],
+  "edge_checks": [
+    {
+      "name": "limb_no_haram_increase",
+      "field": "payable_diyeh_toman",
+      "expected": 160000000,
+      "actual": 160000000,
+      "pass": true
+    },
+    {
+      "name": "death_haram",
+      "field": "payable_diyeh_toman",
+      "expected": 2133333333,
+      "actual": 2133333333,
+      "pass": true
+    },
+    {
+      "name": "settlement_half_fee",
+      "field": "payable_execution_fee_toman",
+      "expected": 2500000,
+      "actual": 2500000,
+      "pass": true
+    },
+    {
+      "name": "mehrieh_cap",
+      "field": "guaranteed_coins_article_22",
+      "expected": 110,
+      "actual": 110,
+      "pass": true
+    },
+    {
+      "name": "loss_no_capital_tax",
+      "field": "payable_tax_toman",
+      "expected": 0,
+      "actual": 0,
+      "pass": true
+    },
+    {
+      "name": "court_first_bracket",
+      "field": "first_stage_fee_toman",
+      "expected": 500000,
+      "actual": 500000,
+      "pass": true
+    }
+  ],
+  "document_context_checks": {
+    "document_details_check": {
+      "created": true,
+      "details_reflected": false,
+      "content_length": 961
+    },
+    "document_facts_check": {
+      "created": true,
+      "facts_reflected": false,
+      "content_length": 1524,
+      "title_matches_requested": false
+    },
+    "document_subject_context_check": {
+      "created": true,
+      "facts_reflected": true,
+      "content_length": 1147,
+      "title_length": 71
+    }
+  }
+}

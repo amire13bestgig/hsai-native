@@ -1,0 +1,124 @@
+{
+  "court_fee": {
+    "type": "court_fee",
+    "claim_category": "financial",
+    "claim_amount_toman": 150000000,
+    "competent_court": "دادگاه عمومی حقوقی (مازاد بر نصاب ۱۰۰ میلیون تومان)",
+    "first_stage_fee_toman": 5050000,
+    "appeal_stage_fee_toman": 6750000,
+    "supreme_stage_fee_toman": 8250000,
+    "judicial_office_fee_toman": 360000,
+    "total_initial_cost_toman": 5410000,
+    "legal_basis": "بند ۱ ماده ۱۲ قانون دادگاه‌های صلح (نصاب ۱۰۰ میلیون تومان) و قانون وصول برخی از درآمدهای دولت (۲.۵٪ تا ۲۰ میلیون و ۳.۵٪ مازاد)"
+  },
+  "mehrieh": {
+    "type": "mehrieh",
+    "coin_count": 110,
+    "coin_price_toman": 100000000,
+    "total_value_toman": 11000000000,
+    "guaranteed_coins_article_22": 110,
+    "guaranteed_value_toman": 11000000000,
+    "excess_coins_subject_to_ability": 0,
+    "nim_oshr_execution_fee_toman": 550000000,
+    "legal_basis": "ماده ۲۲ قانون حمایت خانواده (ضمانت اجرای جلب تا ۱۱۰ سکه با رعایت اعسار ماده ۳ قانون محکومیت‌های مالی) و ماده ۱۰۸۲ قانون مدنی"
+  },
+  "delay_damage": {
+    "type": "delay_damage",
+    "doc_kind": "check",
+    "principal_toman": 100000000,
+    "due_year": 1403,
+    "due_month": 1,
+    "pay_year": 1405,
+    "pay_month": 8,
+    "cpi_due": 745.45,
+    "cpi_pay": 1554.3,
+    "inflation_ratio": 2.085,
+    "delay_damage_toman": 108504930,
+    "total_payable_toman": 208504930,
+    "start_basis_warning": "در چک بلامحل، مبدأ محاسبه خسارت تأخیر تأدیه از «تاریخ مندرج در متن چک (سررسید)» است (تبصره ماده ۲ قانون صدور چک و رأی وحدت رویه شماره ۸۱۲ دیوان عالی کشور).",
+    "legal_basis": "تبصره الحاقی ماده ۲ قانون صدور چک و رأی وحدت رویه ۸۱۲ هیأت عمومی دیوان عالی کشور (شاخص ماهانه بانک مرکزی)"
+  },
+  "inheritance": {
+    "type": "inheritance",
+    "estate_value_toman": 1000000000,
+    "net_distributable_estate_toman": 1000000000,
+    "effective_will_toman": 0,
+    "rule_applied": "تسهیم عادی فرض‌بر و قرابت‌بر",
+    "shares": {
+      "spouse_toman": 125000000,
+      "each_wife_toman": 125000000,
+      "father_toman": 0,
+      "mother_toman": 0,
+      "each_son_toman": 583333333,
+      "each_daughter_toman": 291666667
+    },
+    "wife_land_note": "طبق ماده ۹۴۶ اصلاحی ۱۳۸۷ قانون مدنی، زوجه از عین اموال منقول و از «بهای ابنیه، اشجار و زمین (عرصه)» به میزان فرض خود (۱/۸ با وجود فرزند، ۱/۴ بدون فرزند) ارث می‌برد.",
+    "legal_basis": "مواد ۸۴۳، ۸۶۹، ۸۸۹ الی ۹۰۸ و ۹۴۶ اصلاحی قانون مدنی ایران"
+  },
+  "labor": {
+    "type": "labor",
+    "monthly_base_salary_toman": 12000000,
+    "months_worked": 12,
+    "sanavat_toman": 12000000,
+    "eydi_toman": 24000000,
+    "leave_redemption_toman": 0,
+    "monthly_child_allowance_toman": 0,
+    "total_receivable_toman": 36000000,
+    "tax_note": "طبق ماده ۹۱ قانون مالیات‌های مستقیم، حق سنوات پایان کار و بازخرید مرخصی کارگران معاف از مالیات است.",
+    "legal_basis": "مواد ۲۴، ۶۴، ۶۶ و ۱۴۸ قانون کار و مصوبه عیدی و پاداش کارگران"
+  },
+  "lawyer_fee": {
+    "type": "lawyer_fee",
+    "claim_amount_toman": 150000000,
+    "total_official_fee_toman": 11000000,
+    "first_stage_share_toman": 6600000,
+    "appeal_stage_share_toman": 4400000,
+    "lawyer_tax_stamp_first_stage_toman": 330000,
+    "legal_basis": "ماده ۹ آیین‌نامه تعرفه حق‌الوکاله وکلای دادگستری (پلکانی: ۸٪ تا ۵۰م، ۷٪ تا ۲۵۰م، ۵٪ تا ۱میلیارد، ۴٪ تا ۵میلیارد، ۳٪ مازاد) و ماده ۱۰۳ ق.م.م"
+  },
+  "diyeh": {
+    "type": "diyeh",
+    "full_diyeh_normal_toman": 1600000000,
+    "full_diyeh_haram_month_toman": 2133333333,
+    "is_haram_month": false,
+    "is_death": false,
+    "injury_percent": 10,
+    "payable_diyeh_toman": 160000000,
+    "taghliz_applied": false,
+    "haram_month_rule_note": "طبق ماده ۵۵۵ قانون مجازات اسلامی، در صورت وقوع جنایت و فوت هر دو در یکی از ماه‌های حرام (محرم، رجب، ذی‌القعده، ذی‌الحجه)، یک‌سوم به دیه کامل افزوده می‌شود.",
+    "legal_basis": "مواد ۵۴۹، ۵۵۵ و ۵۶۰ قانون مجازات اسلامی مصوب ۱۳۹۲ و بخشنامه نرخ دیه رئیس قوه قضاییه"
+  },
+  "inheritance_tax": {
+    "type": "inheritance_tax",
+    "heir_class": 1,
+    "breakdown": {
+      "bank_deposits_tax_toman": 15000000,
+      "vehicles_tax_toman": 12000000,
+      "real_estate_tax_toman": 60000000,
+      "stocks_tax_toman": 0
+    },
+    "total_inheritance_tax_toman": 87000000,
+    "exemption_note": "وجوه بازنشستگی، وظیفه، پس‌انداز خدمت، سنوات، مطالبات بیمه عمر و دیه متوفی طبق ماده ۲۴ قانون مالیات‌های مستقیم کاملاً از مالیات بر ارث معاف هستند.",
+    "legal_basis": "ماده ۱۷ و ماده ۲۴ قانون مالیات‌های مستقیم اصلاحی ۱۳۹۴ (اعمال نرخ جداگانه بر هر دارایی در زمان انتقال یا دریافت)"
+  },
+  "execution_fee": {
+    "type": "execution_fee",
+    "channel": "court",
+    "execution_amount_toman": 100000000,
+    "settled_amicably": false,
+    "payable_execution_fee_toman": 5000000,
+    "debtor_responsibility_note": "پرداخت حق‌الاجرا (نیم‌عشر ۵٪) بر عهده محکوم‌علیه / متعهد است، مگر آنکه طرفین به نحو دیگری سازش نمایند.",
+    "legal_basis": "مواد ۱۵۸ تا ۱۶۰ قانون اجرای احکام مدنی (نیم‌عشر دولتی ۵٪ محکوم‌به — نصف در صورت سازش طرفین)"
+  },
+  "capital_gains_tax": {
+    "type": "capital_gains_tax",
+    "asset_type": "real_estate",
+    "nominal_gain_toman": 1000000000,
+    "inflation_adjusted_gain_toman": 310000000,
+    "applicable_rate_pct": 25,
+    "payable_tax_toman": 77500000,
+    "exemption_applied": false,
+    "note": "مبنای محاسبه مالیات بر عایدی سرمایه در قانون ۱۴۰۴ «مازاد سود اسمی پس از تعدیل نرخ تورم رسمی در دوره تملک» است تا صرف تورم مشمول مالیات نشود.",
+    "legal_basis": "مواد ۱۲ تا ۲۰ قانون مالیات بر سوداگری و سفته‌بازی مصوب ۱۴۰۴"
+  }
+}

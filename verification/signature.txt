@@ -1,0 +1,7 @@
+APK: hsai-native-2.0.0-debug.apk
+applicationId: ir.hsai.mobile
+versionCode: 3
+versionName: 2.0.0-native
+Signer: Android Debug
+SHA-256 certificate: 30b7163d6143d3154d4f44219fb711a7b18a017197331592c7f1072a54466bf8
+Verified with Android SDK apksigner. Matches previous project debug certificate.
