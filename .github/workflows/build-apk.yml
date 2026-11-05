@@ -28,8 +28,10 @@ jobs:
       - name: Restore Fixed Debug Keystore
         run: |
           mkdir -p keystore
-          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > keystore/debug.keystore || true
-          if [ ! -s keystore/debug.keystore ]; then
+          rm -f keystore/debug.keystore
+          if [ -n "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > keystore/debug.keystore
+          else
             keytool -genkeypair -v -keystore keystore/debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
