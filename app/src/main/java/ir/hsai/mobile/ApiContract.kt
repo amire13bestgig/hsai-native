@@ -23,17 +23,37 @@ object ApiContract {
   val start=offset.coerceAtMost(all.size.toLong()).toInt()
   return Page(all.drop(start).take(size),offset+size<all.size)
  }
+ // FIX(documents): عنوانِ برگه و شرح ماجرا دو فیلد جدا هستند. نسخهٔ قبلی شرح را داخل «موضوع»
+ // می‌ریخت، پس در برگهٔ تولیدی عنوان تبدیل به یک بلوک چندخطی می‌شد و «شرح» هم به‌عنوان موضوع
+ // به مدل می‌رفت. خادم (v66) هم subject و هم details/facts_summary را می‌پذیرد.
  fun documentBody(type:String,title:String,details:String)=JSONObject()
-  .put("doc_type",type).put("title",title.trim()).put("subject",title.trim()+"\n\nشرح ماجرا و خواسته:\n"+details.trim()).put("details",details.trim())
+  .put("doc_type",type)
+  .put("title",title.trim())
+  .put("subject",title.trim())
+  .put("details",details.trim())
+  .put("facts_summary",details.trim())
  fun deadlineBody(title:String,date:String,notes:String)=JSONObject()
   .put("title",title.trim()).put("case_title",title.trim()).put("due_date",date).put("deadline_date",date).put("notes",notes)
- fun scannerBody(kind:String,text:String,image:String?):JSONObject {
+ /**
+  * FIX(scanner): تاریخ ابلاغ اختیاری اما مهم است. سرور پس از v66 بدون تاریخ معتبر هیچ
+  * مهلتی نمی‌سازد؛ پس اگر کاربر تاریخ را بداند باید همان را بفرستیم تا سررسید واقعی
+  * محاسبه شود (پیش‌تر این فیلد هرگز ارسال نمی‌شد و ابزار مهلت عملاً بی‌اثر بود).
+  */
+ fun scannerBody(kind:String,text:String,image:String?,noticeDate:String=""):JSONObject {
   val body=JSONObject().put("kind",kind).put("text",text.trim())
   if(kind=="contract")body.put("scan_mode","contract_risk")
   if(kind=="notice")body.put("scan_mode","sana_notice")
   if(image!=null)body.put("image_base64",image)
+  if(noticeDate.isNotBlank())body.put("notice_date",noticeDate.trim())
   return body
  }
+
+ /** تازه در v66: سرور وقتی برگه خوانده نشود read_ok=false برمی‌گرداند و هیچ عنوان/مهلتی نمی‌سازد. */
+ fun scanUnreadable(analysis:JSONObject?):Boolean = analysis!=null && analysis.has("read_ok") && !analysis.isNull("read_ok") && !analysis.optBoolean("read_ok",true)
+ fun scanNoticeDateMissing(analysis:JSONObject?):Boolean = analysis?.optJSONObject("deadline")?.str("status") in setOf("missing_notice_date","invalid_notice_date")
+ /** تازه در v66: وضعیت واقعی راستی‌آزمایی استنادها؛ verified=false یعنی پاسخ تأیید نشده است. */
+ fun verificationFailed(v:JSONObject?):Boolean = v!=null && (v.str("verification_status")=="failed" || (v.has("verified") && !v.isNull("verified") && !v.optBoolean("verified",true)))
+ fun citationIssues(v:JSONObject?):List<JSONObject> { val a=v?.optJSONArray("citation_issues")?:return emptyList();return (0 until a.length()).mapNotNull{a.optJSONObject(it)} }
  fun simplifiedText(data:JSONObject):String = listOf("simplified_content","content","simplified","simplified_answer","answer","text")
   .firstNotNullOfOrNull { data.str(it).takeIf(String::isNotBlank) } ?: throw ApiException("متن ساده‌شده در خروجی نیست.")
  fun verification(data:JSONObject):JSONObject? = data.optJSONObject("verification")

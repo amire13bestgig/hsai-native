@@ -6,7 +6,31 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ApiContractTest {
- @Test fun productionDocumentRequiresSubjectAlias(){val b=ApiContract.documentBody("اظهارنامه"," عنوان ","شرح");assertTrue(b.getString("subject").startsWith("عنوان\n"));assertTrue(b.getString("subject").contains("شرح"));assertEquals("شرح",b.getString("details"))}
+ // BUG-04: عنوان و شرح ماجرا نباید در هم ادغام شوند. سرور «subject» را عنوان برگه می‌کند
+ // (و در ۶۰ نویسه می‌بُرد) و شرح را از «facts_summary» می‌خواند؛ نسخهٔ قبلی شرح را داخل
+ // subject می‌ریخت، پس هم عنوان خراب می‌شد و هم شرح به مدل نمی‌رسید.
+ @Test fun productionDocumentSplitsTitleFromFacts(){
+  val b=ApiContract.documentBody("اظهارنامه"," عنوان ","شرح")
+  assertEquals("عنوان",b.getString("subject"))
+  assertEquals("عنوان",b.getString("title"))
+  assertEquals("شرح",b.getString("facts_summary"))
+  assertEquals("شرح",b.getString("details"))
+  assertFalse(b.getString("subject").contains("شرح"))}
+ // BUG-05: بدون تاریخ ابلاغ واقعی، سرور هیچ مهلتی نمی‌سازد؛ کلاینت باید آن را بفرستد.
+ @Test fun scannerSendsRealNoticeDateOnlyWhenGiven(){
+  assertFalse(ApiContract.scannerBody("notice","متن",null).has("notice_date"))
+  assertEquals("2026-10-01",ApiContract.scannerBody("notice","متن",null,"2026-10-01").getString("notice_date"))}
+ // BUG-06/07: وضعیت «خوانده نشد» و «تأییدنشده» باید از پاسخ سرور تشخیص داده شود.
+ @Test fun unreadableScanAndFailedVerificationAreDetected(){
+  assertTrue(ApiContract.scanUnreadable(JSONObject().put("read_ok",false)))
+  assertFalse(ApiContract.scanUnreadable(JSONObject().put("read_ok",true)))
+  assertTrue(ApiContract.verificationFailed(JSONObject().put("verification_status","failed")))
+  assertTrue(ApiContract.verificationFailed(JSONObject().put("verified",false)))
+  assertFalse(ApiContract.verificationFailed(JSONObject().put("verified",true)))
+  assertEquals(2,ApiContract.citationIssues(JSONObject().put("citation_issues",JSONArray().put(JSONObject().put("reference","ماده ۱۹۰")).put(JSONObject().put("citation","ماده ۱۰")))).size)}
+ @Test fun missingNoticeDateDeadlineIsFlagged(){
+  assertTrue(ApiContract.scanNoticeDateMissing(JSONObject().put("deadline",JSONObject().put("status","missing_notice_date"))))
+  assertFalse(ApiContract.scanNoticeDateMissing(JSONObject().put("deadline",JSONObject().put("status","computed"))))}
  @Test fun productionDeadlineRequiresCaseAndDateAliases(){val b=ApiContract.deadlineBody("آزمون","2026-12-15","");assertEquals("آزمون",b.getString("case_title"));assertEquals(b.getString("due_date"),b.getString("deadline_date"))}
  @Test fun contractScannerMustNotDefaultToCourtNotice(){assertEquals("contract_risk",ApiContract.scannerBody("contract","متن",null).getString("scan_mode"))}
  @Test fun noticeScannerModeIsExplicit(){assertEquals("sana_notice",ApiContract.scannerBody("notice","متن",null).getString("scan_mode"))}

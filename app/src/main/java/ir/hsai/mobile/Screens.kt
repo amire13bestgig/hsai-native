@@ -3,7 +3,6 @@ package ir.hsai.mobile
 
 import android.graphics.BitmapFactory
 import android.util.Base64
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
@@ -14,8 +13,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -24,15 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -127,7 +121,8 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
 
 @Composable fun ChatScreen(s:AppUiState,vm:AppViewModel,onImage:()->Unit,onCamera:()->Unit,onEditImage:()->Unit) {
  val list=rememberLazyListState()
- LaunchedEffect(s.messages.size,s.messages.lastOrNull()?.text,s.posting){if(s.messages.isNotEmpty())list.animateScrollToItem((list.layoutInfo.totalItemsCount-1).coerceAtLeast(0))}
+ // FIX(ux): کلید قبلی متنِ آخرین پیام بود و با هر توکن تازهٔ پاسخ، اسکرول از نو انیمیشن اجرا می‌کرد (لرزش فهرست).
+ LaunchedEffect(s.messages.size,s.posting){if(s.messages.isNotEmpty())list.animateScrollToItem((list.layoutInfo.totalItemsCount-1).coerceAtLeast(0))}
  Column(Modifier.fillMaxSize().imePadding(),horizontalAlignment=Alignment.CenterHorizontally) {
  LazyColumn(state=list,modifier=Modifier.weight(1f).widthIn(max=1000.dp).fillMaxWidth(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
   if(s.messages.isEmpty())item {HomeContent(s,vm)}
@@ -211,6 +206,15 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
   else if(busy&&isLatest)Text("در حال دریافت پاسخ…",style=MaterialTheme.typography.bodySmall)
   else if(m.document==null&&m.questions.isEmpty()&&m.citations.isEmpty()&&m.verification==null&&m.suggestions.isEmpty())Text("پاسخ متنی در خروجی موجود نیست.",style=MaterialTheme.typography.bodySmall)
   if(!user&&m.verification!=null) {
+   // FIX(verification): در v66 سرور وضعیت واقعی راستی‌آزمایی را برمی‌گرداند. نسخهٔ قبلی همیشه فقط
+   // «عدد اطمینان» را نشان می‌داد، پس پاسخِ تأییدنشده با امتیاز بالا هم بی‌خطر به‌نظر می‌رسید.
+   if(ApiContract.verificationFailed(m.verification)){
+    val issues=ApiContract.citationIssues(m.verification)
+    Surface(color=MaterialTheme.colorScheme.errorContainer,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
+     Text("این پاسخ تأیید نشد",fontWeight=FontWeight.Bold,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onErrorContainer)
+     Text(if(issues.isEmpty())"استنادهای این پاسخ با متن مواد قانونی تطبیق داده نشد؛ پیش از هر اقدام، متن ماده را از منبع رسمی ببینید." else "استنادهای تأییدنشده: "+issues.joinToString("، "){it.str("reference",it.str("citation","نامشخص"))},style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onErrorContainer)
+    }}
+   }
    val details=JSONObject();ApiContract.verificationKeys(m.verification).forEach{k->details.put(k,m.verification.opt(k))}
    if(details.length()>0){var show by remember{mutableStateOf(false)};TextButton(onClick={show=!show}){Text(if(show)"بستن راهنمای عملی"else "راهنمای عملی و نتیجه بررسی")};if(show){Text("راستی‌آزمایی و امتیاز اطمینان، ادعای سرور است و تأیید مستقل حقوقی محسوب نمی‌شود.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error);DataResult(details)}}
   }
@@ -254,8 +258,8 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
  FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
   FilterChip(selected=tab=="profile",onClick={tab="profile"},label={Text("پروفایل و هویت")})
   FilterChip(selected=tab=="security",onClick={tab="security"},label={Text("امنیت و رمز عبور")})
-  FilterChip(selected=false,onClick={vm.navigate(Screen.PLANS)},label={Text("اشتراک و پرداخت‌ها")})
-  FilterChip(selected=false,onClick={vm.navigate(Screen.TICKETS)},label={Text("تیکت‌های پشتیبانی")})
+  AssistChip(onClick={vm.navigate(Screen.PLANS)},label={Text("اشتراک و پرداخت‌ها")})
+  AssistChip(onClick={vm.navigate(Screen.TICKETS)},label={Text("تیکت‌های پشتیبانی")})
  }
  Loading(s);ErrorNotice(s,{vm.refresh()})
  if(tab=="profile") {
@@ -320,9 +324,9 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
 }},detail={d->ScrollableDetail(d,s,vm,false)}) }
 @Composable fun ScannerScreen(s:AppUiState,vm:AppViewModel,onImage:()->Unit,onCamera:()->Unit,onEdit:()->Unit) {Page{
  PageHeader("تحلیل مدارک","ابلاغیه یا قرارداد را برای بررسی انتخاب کنید.")
- var kind by rememberSaveable{mutableStateOf("notice")};var text by rememberSaveable{mutableStateOf("")};var consent by rememberSaveable{mutableStateOf(false)}
- GlassCard{Choice("نوع برگه",kind,listOf("notice" to "ابلاغیه دادگاه","contract" to "قرارداد"),error=s.fieldErrors["kind"],enabled=!s.posting,onEdited={vm.inputEdited("kind",true)},firstError=s.firstField("kind"),attempt=s.validationAttempt){kind=it};FlowRow{OutlinedButton(onClick=onImage){Icon(NativeIcons.AddPhotoAlternate,null);Text("گالری")};Spacer(Modifier.width(10.dp));OutlinedButton(onClick=onCamera){Icon(NativeIcons.PhotoCamera,null);Text("دوربین")}};if(s.image!=null){NativeImage(s.image);ImageAttachment(s.image,onEdit,{vm.setImage(null)},showPreview=false)};Field("یا متن برگه را وارد کنید",text,{text=it},multiline=true,error=s.fieldErrors["text"],enabled=!s.posting,onEdited={vm.inputEdited("text",true)},firstError=s.firstField("text"),attempt=s.validationAttempt);Row(Modifier.then(Modifier.fieldFeedback(s.fieldErrors["consent"],s.firstField("consent"),s.validationAttempt)).toggleable(value=consent,enabled=!s.posting,role=Role.Checkbox,onValueChange={consent=it;vm.inputEdited("consent")}),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=consent,onCheckedChange=null,enabled=!s.posting);Text("مشخصات حساس را بررسی کرده‌ام و با ارسال برگه برای تحلیل موافقم.",style=MaterialTheme.typography.bodySmall)};s.fieldErrors["consent"]?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)};Action("تحلیل برگه",s.posting){vm.analyze(kind,text,s.image,consent)}}
- ErrorNotice(s);s.result?.let{GlassCard{Text("نتیجه تحلیل",style=MaterialTheme.typography.titleMedium);Text("این تحلیل و هر مهلت پیشنهادی، خروجی هوش مصنوعی است و ممکن است نامرتبط یا اشتباه باشد. نوع برگه، تاریخ ابلاغ و مهلت قانونی را با اصل سند و مرجع قضایی مستقلاً تأیید کنید؛ اپ یادآور خودکار ثبت نمی‌کند.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall);DataResult(it)}}
+ var kind by rememberSaveable{mutableStateOf("notice")};var text by rememberSaveable{mutableStateOf("")};var consent by rememberSaveable{mutableStateOf(false)};var noticeDate by rememberSaveable{mutableStateOf("")}
+ GlassCard{Choice("نوع برگه",kind,listOf("notice" to "ابلاغیه دادگاه","contract" to "قرارداد"),error=s.fieldErrors["kind"],enabled=!s.posting,onEdited={vm.inputEdited("kind",true)},firstError=s.firstField("kind"),attempt=s.validationAttempt){kind=it};FlowRow{OutlinedButton(onClick=onImage){Icon(NativeIcons.AddPhotoAlternate,null);Text("گالری")};Spacer(Modifier.width(10.dp));OutlinedButton(onClick=onCamera){Icon(NativeIcons.PhotoCamera,null);Text("دوربین")}};if(s.image!=null){NativeImage(s.image);ImageAttachment(s.image,onEdit,{vm.setImage(null)},showPreview=false)};Field("یا متن برگه را وارد کنید",text,{text=it},multiline=true,error=s.fieldErrors["text"],enabled=!s.posting,onEdited={vm.inputEdited("text",true)},firstError=s.firstField("text"),attempt=s.validationAttempt);if(kind=="notice"){Field("تاریخ ابلاغ (میلادی، اختیاری — مثل 2026-10-01)",noticeDate,{noticeDate=it},error=s.fieldErrors["notice_date"],enabled=!s.posting,onEdited={vm.inputEdited("notice_date",true)},firstError=s.firstField("notice_date"),attempt=s.validationAttempt);Text("مهلت قانونی فقط با تاریخ واقعی ابلاغ حساب می‌شود؛ اگر خالی بماند هیچ سررسیدی ساخته نمی‌شود و اپ تاریخ حدسی نمی‌سازد.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Row(Modifier.then(Modifier.fieldFeedback(s.fieldErrors["consent"],s.firstField("consent"),s.validationAttempt)).toggleable(value=consent,enabled=!s.posting,role=Role.Checkbox,onValueChange={consent=it;vm.inputEdited("consent")}),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=consent,onCheckedChange=null,enabled=!s.posting);Text("مشخصات حساس را بررسی کرده‌ام و با ارسال برگه برای تحلیل موافقم.",style=MaterialTheme.typography.bodySmall)};s.fieldErrors["consent"]?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)};Action("تحلیل برگه",s.posting){vm.analyze(kind,text,s.image,consent,noticeDate)}}
+ ErrorNotice(s);s.result?.let{result->GlassCard{if(ApiContract.scanUnreadable(result)){Text("این برگه خوانده نشد",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.error);Text(result.str("plain_meaning","متن یا تصویر ارسالی قابل خواندن نبود؛ پس هیچ نوع برگه، مهلت یا اقدامی برای شما تعیین نمی‌شود."),style=MaterialTheme.typography.bodyMedium)}else{Text("نتیجه تحلیل",style=MaterialTheme.typography.titleMedium);Text("این تحلیل و هر مهلت پیشنهادی، خروجی هوش مصنوعی است و ممکن است نامرتبط یا اشتباه باشد. نوع برگه، تاریخ ابلاغ و مهلت قانونی را با اصل سند و مرجع قضایی مستقلاً تأیید کنید؛ اپ یادآور خودکار ثبت نمی‌کند.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall);if(ApiContract.scanNoticeDateMissing(result))Text("تاریخ ابلاغ را وارد نکرده‌اید؛ برای همین هیچ سررسیدی محاسبه نشد. تاریخ واقعی ابلاغ را در فرم بالا بنویسید و دوباره تحلیل کنید.",style=MaterialTheme.typography.bodySmall)};DataResult(result)}}
  Text("تحلیل‌های قبلی",style=MaterialTheme.typography.titleMedium);Loading(s);if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())Text("تحلیلی ثبت نشده است.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);AdaptiveCards(s.items) { a->Text(a.str("title","تحلیل برگه"),fontWeight=FontWeight.Medium);var expanded by remember{mutableStateOf(false)};TextButton(onClick={expanded=!expanded}){Text(if(expanded)"بستن تحلیل"else "نمایش تحلیل")};if(expanded)DataResult(a.optJSONObject("analysis")?:JSONObject().put("text",a.str("raw_text")));if(a.optLong("id")>0)TextButton(onClick={vm.openDialog("delete","حذف تحلیل",JSONObject().put("kind","scanner").put("id",a.optLong("id")))}){Text("حذف تحلیل")}};Pager(s,vm)
 } }
 @Composable fun LawScreen(s:AppUiState,vm:AppViewModel) {WorkspaceListDetail(s,vm,if(s.lawTab=="search")setOf("article")else emptySet(),list={wide->Page(hero={SiteHero("قانون موردنظرتان را پیدا کنید","متن قانون، توضیح ساده و مقایسه تغییرات.","جستجوی رایگان در متن رسمی قوانین",NativeIcons.MenuBook,footer={SiteTabs(listOf("search" to "جستجو","comparisons" to "قدیم و جدید","glossary" to "واژه‌نامه","collections" to "مجموعه‌ها"),s.lawTab,vm::lawTab)})}) {

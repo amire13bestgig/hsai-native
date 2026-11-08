@@ -1,17 +1,11 @@
 package ir.hsai.mobile
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -20,7 +14,6 @@ import androidx.compose.ui.unit.sp
 
 val SiteNavy=Color(0xFF07141E)
 val SiteGold=Color(0xFFCE9F58)
-val Jade=SiteNavy // Kept as a source-compatible token for existing native components.
 val Copper=Color(0xFF955628)
 val Vazir=FontFamily(
  Font(R.font.vazirmatn_regular,FontWeight.Normal),Font(R.font.vazirmatn_medium,FontWeight.Medium),
@@ -45,13 +38,6 @@ val LocalSiteDark=staticCompositionLocalOf{false}
   bodyLarge=b.bodyLarge.copy(fontFamily=Vazir,fontSize=15.sp,lineHeight=27.sp),bodyMedium=b.bodyMedium.copy(fontFamily=Vazir,fontSize=14.sp,lineHeight=26.sp),bodySmall=b.bodySmall.copy(fontFamily=Vazir,fontSize=12.sp,lineHeight=22.sp),
   labelLarge=b.labelLarge.copy(fontFamily=Vazir),labelMedium=b.labelMedium.copy(fontFamily=Vazir),labelSmall=b.labelSmall.copy(fontFamily=Vazir)
  ),content={CompositionLocalProvider(LocalContentColor provides scheme.onBackground,LocalSiteDark provides dark){content()}})
-}
-@Composable fun AmbientBackground() {
- val colors=MaterialTheme.colorScheme
- Canvas(Modifier.fillMaxSize().background(colors.background)) {
-  drawCircle(Brush.radialGradient(listOf(colors.primary.copy(alpha=.12f),Color.Transparent),center=Offset(size.width*.8f,size.height*.12f),radius=size.width*.9f),radius=size.width,center=Offset(size.width*.8f,size.height*.12f))
-  drawCircle(Brush.radialGradient(listOf(Color(0xFFBE926E).copy(alpha=.12f),Color.Transparent),center=Offset(0f,size.height*.5f),radius=size.width*.8f),radius=size.width*.9f,center=Offset(0f,size.height*.5f))
- }
 }
 @Composable fun GlassCard(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit) {
  SiteGlass(modifier) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)}

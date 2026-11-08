@@ -100,7 +100,9 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
   if(rail)Column(Modifier.statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)) {
    BrandEmblem(Modifier.padding(vertical=12.dp))
    IconButton(onClick=vm::newChat){Icon(NativeIcons.Add,"گفتگوی جدید",tint=SiteGold)}
-   Screen.entries.forEach { screen->Surface(onClick={select(screen)},shape=RoundedCornerShape(12.dp),color=if(s.screen==screen)SiteGold.copy(alpha=.18f)else Color.Transparent) {
+   // FIX(nav): حساب کاربری در ریل کنارِ آیکونِ پروفایلِ نوار بالا تکرار می‌شد و دو دکمهٔ هم‌نام
+   // یک مقصد واحد داشتند؛ نسخهٔ ریل فقط مقصدهای انحصاری خودش را نشان می‌دهد.
+   Screen.entries.filterNot{it==Screen.ACCOUNT}.forEach { screen->Surface(onClick={select(screen)},shape=RoundedCornerShape(12.dp),color=if(s.screen==screen)SiteGold.copy(alpha=.18f)else Color.Transparent) {
     Icon(screen.symbol(),screen.title,Modifier.padding(16.dp).size(22.dp),tint=if(s.screen==screen)SiteGold else Color(0xFFCFD8E1))
    }}
   } else Column(Modifier.statusBarsPadding().navigationBarsPadding()) {

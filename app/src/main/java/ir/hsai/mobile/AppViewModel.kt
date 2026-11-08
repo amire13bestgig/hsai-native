@@ -6,7 +6,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
 
@@ -37,10 +36,6 @@ sealed interface AppEffect {
  data class Calendar(val title:String,val date:String):AppEffect
  data class Remind(val id:Long,val title:String,val date:String,val owner:String):AppEffect
 }
-fun JSONObject.str(key:String,default:String=""):String = if(isNull(key)) default else optString(key,default)
-fun JSONObject.objects(key:String):List<JSONObject> = optJSONArray(key)?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } } ?: emptyList()
-fun JSONObject.safeLong(key:String):Long? = if(has(key)&&!isNull(key)&&optLong(key,-1)>=0) optLong(key) else null
-
 class AppViewModel @JvmOverloads constructor(app:Application,private val saved:SavedStateHandle,val api:ApiClient=ApiClient(),private val vault:SessionStore=SecureSession(app)):AndroidViewModel(app) {
  private val mutable=MutableStateFlow(AppUiState(draft=saved["draft"] ?: ""))
  val state:StateFlow<AppUiState> = mutable.asStateFlow()
@@ -119,7 +114,10 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   if(!state.value.authenticated&&(screen in privateScreens||screen==Screen.ACCOUNT)){loginRequired(screen);return}
   if(state.value.screen!=screen&&remember)back.add(state.value.screen)
   generation++;loadJob?.cancel()
-  change { it.copy(screen=screen,backDepth=back.size,dialog=null,pane=null,fieldErrors=emptyMap(),error="",items=emptyList(),data=JSONObject(),result=null,page=1,hasNext=false,loading=false) }
+  // FIX(ux): تصویر انتخاب‌شده در چت نباید به اسکنر برود و برعکس؛ قبلاً یک جایگاه مشترک داشتند
+  // و کاربر تصویر گفتگو را ناگهان در فرم تحلیل مدارک می‌دید.
+  val leavingScan = state.value.screen==Screen.SCANNER && screen!=Screen.SCANNER
+  change { it.copy(screen=screen,backDepth=back.size,dialog=null,pane=null,fieldErrors=emptyMap(),error="",items=emptyList(),data=JSONObject(),result=null,page=1,hasNext=false,loading=false,image=if(leavingScan)null else it.image) }
   if(screen in privateScreens && !state.value.authenticated)returnTo=screen
   refresh()
  }
@@ -316,10 +314,10 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
  fun download(id:Long) { if(id<=0){notice("شناسه سند معتبر نیست.");return};if(api.token.isBlank())loginRequired()else events.tryEmit(AppEffect.Download(id,sessionEpoch)) }
  fun openExternal(url:String) { runCatching { val u=java.net.URI(url);require(u.scheme=="https"&&u.host!=null);events.tryEmit(AppEffect.OpenUrl(url)) }.onFailure { notice("نشانی معتبر نیست.") } }
  fun copy(text:String) { events.tryEmit(AppEffect.Copy(text)) }
- fun analyze(kind:String,text:String,image:String?,consent:Boolean) { val g=generation;post {
+ fun analyze(kind:String,text:String,image:String?,consent:Boolean,noticeDate:String="") { val g=generation;post {
   change{it.copy(result=null)}
-  validateFields("kind" to {require(kind in listOf("notice","contract")){"نوع برگه معتبر انتخاب کنید."}},"text" to {require(text.isNotBlank()||image!=null){"متن یا تصویر برگه را انتخاب کنید."}},"consent" to {require(consent){"رضایت ارسال برگه را تأیید کنید."}})
-  val body=ApiContract.scannerBody(kind,text,image)
+  validateFields("kind" to {require(kind in listOf("notice","contract")){"نوع برگه معتبر انتخاب کنید."}},"text" to {require(text.isNotBlank()||image!=null){"متن یا تصویر برگه را انتخاب کنید."}},"consent" to {require(consent){"رضایت ارسال برگه را تأیید کنید."}},"notice_date" to { if(noticeDate.isNotBlank()){ try { java.time.LocalDate.parse(noticeDate.trim()) } catch(_:Exception) { throw IllegalArgumentException("تاریخ ابلاغ را به شکل ۲۰۲۶-۱۰-۰۱ (سال-ماه-روز میلادی) وارد کنید.") } } })
+  val body=ApiContract.scannerBody(kind,text,image,noticeDate)
   val d=request("/scanner/analyze","POST",body);if(g!=generation)return@post;change { it.copy(result=d.optJSONObject("analysis")?:d) };if(state.value.screen==Screen.SCANNER)refresh()
  } }
  fun addDeadline(title:String,date:String,notes:String) { post {
