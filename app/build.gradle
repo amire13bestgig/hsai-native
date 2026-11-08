@@ -12,11 +12,23 @@ android {
  kotlinOptions { jvmTarget = '17' }
  packaging { resources { excludes += ['/META-INF/{AL2.0,LGPL2.1}'] } }
  signingConfigs {
+  release {
+   storeFile file('../keystore/hsai-permanent.jks')
+   storePassword 'hsai2026pass'
+   keyAlias 'hsai-key'
+   keyPassword 'hsai2026pass'
+   enableV1Signing true
+   enableV2Signing true
+   enableV3Signing true
+  }
   debug {
-   storeFile file('../keystore/debug.keystore')
-   storePassword 'android'
-   keyAlias 'androiddebugkey'
-   keyPassword 'android'
+   storeFile file('../keystore/hsai-permanent.jks')
+   storePassword 'hsai2026pass'
+   keyAlias 'hsai-key'
+   keyPassword 'hsai2026pass'
+   enableV1Signing true
+   enableV2Signing true
+   enableV3Signing true
   }
  }
  buildTypes {
@@ -24,6 +36,7 @@ android {
    signingConfig signingConfigs.debug
   }
   release {
+   signingConfig signingConfigs.release
    minifyEnabled false
   }
  }

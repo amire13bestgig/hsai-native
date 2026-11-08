@@ -25,15 +25,10 @@ jobs:
       - name: Make Gradlew Executable
         run: chmod +x gradlew
 
-      - name: Restore Fixed Debug Keystore
+      - name: Restore Permanent Keystore
         run: |
           mkdir -p keystore
-          rm -f keystore/debug.keystore
-          if [ -n "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > keystore/debug.keystore
-          else
-            keytool -genkeypair -v -keystore keystore/debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/hsai-permanent.jks
 
       - name: Run Unit Tests
         run: HSAI_SKIP_SCREENSHOTS=1 ./gradlew testDebugUnitTest --no-daemon
