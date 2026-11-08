@@ -26,4 +26,13 @@ class CalculatorOutputTest {
   assertEquals(expected,d.getDouble("delay_damage_toman"),1.0)
   assertEquals(d.getLong("principal_toman")+d.getLong("delay_damage_toman"),d.getLong("total_payable_toman"))
  }
+
+ @Test fun finalFourAddedCalculatorObservedOutputsAreInternallyConsistent(){
+  val extra=JSONObject(javaClass.getResource("/calculator-extra-observed-output.json")!!.readText())
+  fun output(id:String)=extra.getJSONObject(id).getJSONObject("output")
+  val expert=output("expert_fee");assertEquals(10_500_000L,expert.getLong("payable_expert_fee_toman"));assertEquals(expert.getLong("payable_expert_fee_toman"),2*expert.getLong("advance_deposit_toman"))
+  val arbitration=output("arbitration_fee");assertEquals(11_100_000L,arbitration.getLong("payable_arbitration_fee_toman"));assertEquals(arbitration.getLong("payable_arbitration_fee_toman"),2*arbitration.getLong("each_party_share_toman"))
+  val notary=output("notary_tariff");assertEquals(69_800_000L,notary.getLong("total_payable_toman"));assertEquals(notary.getLong("total_payable_toman"),notary.getLong("notary_writing_fee_toman")+notary.getLong("registration_fee_toman")+notary.getLong("stamp_duty_toman"))
+  val office=output("office_services_fee");assertEquals(132_000L,office.getLong("total_payable_toman"));assertEquals(office.getLong("total_payable_toman"),office.getLong("subtotal_toman")+office.getLong("vat_toman"))
+ }
 }

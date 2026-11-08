@@ -28,7 +28,7 @@ object SiteDesign {
 }
 
 @Composable fun BrandEmblem(modifier:Modifier=Modifier) {
- Image(painterResource(R.drawable.brand_emblem),null,modifier.size(40.dp))
+ Image(painterResource(R.drawable.brand_mark),"نشان حق‌سنج",modifier.size(40.dp))
 }
 
 /** Translucent native surfaces; never blur child text to imitate CSS backdrop-filter. */
@@ -36,9 +36,9 @@ object SiteDesign {
  val dark=LocalSiteDark.current||onDark
  val top=when{onDark->Color.White.copy(alpha=.065f);dark&&strong->Color(0xFF172A3B).copy(alpha=.96f);dark->Color.White.copy(alpha=.075f);strong->Color.White.copy(alpha=.95f);else->Color.White.copy(alpha=.82f)}
  val bottom=when{onDark->top;dark&&strong->Color(0xFF0B1824).copy(alpha=.94f);dark->Color.White.copy(alpha=.035f);strong->Color.White.copy(alpha=.82f);else->Color.White.copy(alpha=.64f)}
- val line=Color.White.copy(alpha=if(dark).12f else if(strong).9f else .75f)
+ val line=if(dark)Color.White.copy(alpha=.12f)else Color(0xFFE6E2D9).copy(alpha=.9f)
  val shape=RoundedCornerShape(if(strong)22.dp else SiteDesign.CardRadius)
- Surface(modifier=modifier.fillMaxWidth(),color=Color.Transparent,shape=shape,shadowElevation=if(strong)6.dp else 3.dp,border=BorderStroke(1.dp,line)) {
+ Surface(modifier=modifier.fillMaxWidth(),color=if(dark)Color(0xFF102330)else Color.White.copy(alpha=.94f),shape=shape,tonalElevation=0.dp,shadowElevation=0.dp,border=BorderStroke(1.dp,line)) {
   Box(Modifier.background(Brush.verticalGradient(listOf(top,bottom)))) {content()}
  }
 }
@@ -56,39 +56,27 @@ object SiteDesign {
 }
 
 @Composable fun SiteHero(title:String,description:String,badge:String,icon:ImageVector=NativeIcons.Balance,footer:(@Composable ()->Unit)?=null) {
- Box(Modifier.fillMaxWidth().background(SiteNavy)) {
+ BoxWithConstraints(Modifier.fillMaxWidth().background(SiteNavy)) {
+  val wide=maxWidth>=900.dp
   LegalGrid(Modifier.matchParentSize())
-  Column(Modifier.padding(horizontal=24.dp,vertical=32.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-   Surface(color=SiteGold.copy(alpha=.15f),shape=RoundedCornerShape(50),border=BorderStroke(1.dp,SiteGold.copy(alpha=.3f)),contentColor=SiteDesign.Brass300) {
-    Row(Modifier.padding(horizontal=12.dp,vertical=7.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-     Icon(icon,null,Modifier.size(16.dp));Text(badge,style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
-    }
+  Column(Modifier.padding(horizontal=20.dp,vertical=if(wide)24.dp else 20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+   if(wide&&badge.isNotBlank())Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+    Icon(icon,null,Modifier.size(16.dp),tint=SiteDesign.Brass300);Text(badge,color=SiteDesign.Brass300,style=MaterialTheme.typography.labelMedium)
    }
-   Text(title,color=Color.White,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Black)
-   // The website uses slate-600 on navy in places; increase contrast rather than copy that defect.
-   Text(description,color=Color(0xFFCBD5E1),style=MaterialTheme.typography.bodyMedium)
+   Text(title,color=Color.White,style=if(wide)MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
+   Text(description,color=Color(0xFFCBD5E1),style=MaterialTheme.typography.bodySmall)
    if(footer!=null)footer()
   }
  }
 }
 
 @Composable fun AuthShowcase() {
- Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
-  Surface(color=Color.White.copy(alpha=.08f),shape=RoundedCornerShape(50),border=BorderStroke(1.dp,Color.White.copy(alpha=.15f))) {
-   Text("فضای شخصی گفتگوها و اسناد قضایی شما",Modifier.padding(horizontal=14.dp,vertical=8.dp),color=SiteDesign.Brass300,style=MaterialTheme.typography.labelLarge)
-  }
+ Column(verticalArrangement=Arrangement.spacedBy(20.dp)) {
   Text("میز کار اختصاصی حقوقی شما،",color=Color.White,style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Black)
-  Text("همراه با بانک قوانین و آرای رسمی ایران",style=MaterialTheme.typography.headlineMedium.copy(brush=Brush.linearGradient(listOf(SiteDesign.Brass300,SiteDesign.Brass100,SiteGold))),fontWeight=FontWeight.Black)
-  Text("با حساب خود وارد شوید و به مشاوره مستند، بررسی ابلاغیه ثنا و تنظیم اوراق رسمی قضایی دسترسی داشته باشید.",color=Color(0xFFCBD5E1),style=MaterialTheme.typography.bodyMedium)
-  listOf(NativeIcons.MenuBook to ("پاسخ مستند و قابل بررسی" to "متن رسمی استنادها را بخوانید و راهکار را پیش از اقدام حقوقی بررسی کنید."),NativeIcons.Description to ("چاپ استاندارد A4 و فایل Word" to "تنظیم دادخواست، شکواییه، اظهارنامه و لایحه دفاعیه و دریافت خروجی سند.")).forEach { (icon,text) ->
-   SiteGlass(onDark=true) {
-    Row(Modifier.padding(18.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-     Icon(icon,null,tint=SiteDesign.Brass300,modifier=Modifier.size(24.dp))
-     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-      Text(text.first,color=Color.White,fontWeight=FontWeight.Bold)
-      Text(text.second,color=Color(0xFFCBD5E1),style=MaterialTheme.typography.bodySmall)
-     }
-    }
+  Text("همراه با بانک قوانین و آرای رسمی ایران",color=SiteDesign.Brass300,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
+  listOf(NativeIcons.MenuBook to "مطالعه قوانین و استنادهای پاسخ",NativeIcons.Description to "تنظیم پیش‌نویس سند و دریافت Word").forEach { (icon,text)->
+   Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+    Icon(icon,null,tint=SiteDesign.Brass300,modifier=Modifier.size(22.dp));Text(text,color=Color(0xFFE2E8F0),style=MaterialTheme.typography.bodyMedium)
    }
   }
  }
@@ -107,7 +95,7 @@ object SiteDesign {
 
 @Composable fun FeaturedPlan(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit) {
  HsaiTheme(true) {
-  Surface(modifier.fillMaxWidth(),color=SiteNavy,shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,SiteGold),shadowElevation=8.dp) {
+  Surface(modifier.fillMaxWidth(),color=SiteNavy,shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,SiteGold),shadowElevation=0.dp) {
    Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(14.dp),content=content)
   }
  }
@@ -126,7 +114,6 @@ object SiteDesign {
   AdaptiveCards(visible) { item->
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
     Text(item.str("term"),Modifier.weight(1f),fontWeight=FontWeight.Black)
-    Surface(color=MaterialTheme.colorScheme.secondaryContainer,shape=RoundedCornerShape(6.dp)){Text("به زبان ساده",Modifier.padding(6.dp),style=MaterialTheme.typography.labelSmall)}
    }
    Text(item.str("simple"),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
   }

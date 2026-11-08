@@ -23,7 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import org.json.JSONObject
 
-/** Authentication is a separate, first route; it never displays workspace navigation behind it. */
+/** Authentication is an explicit route, shown after a protected action; guest chat stays separate. */
 @Composable fun LoginScreen(s:AppUiState,vm:AppViewModel) {
  var mode by rememberSaveable{mutableStateOf("login")}
  var identifier by rememberSaveable{mutableStateOf("")}
@@ -50,7 +50,10 @@ import org.json.JSONObject
     Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=Color.White,border=BorderStroke(1.dp,Color(0xFFDDE4ED))) {
      Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
       Text(if(mode=="register")"ایجاد حساب کاربری حق‌سنج"else "ورود به میز کار حق‌سنج",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Black)
-      Text(if(s.config.optBoolean("free_trial_enabled",false))"با ورود یا عضویت، هدیه مشاوره رایگان شما بلافاصله فعال می‌شود."else "برای دسترسی به میز کار حقوقی و اسناد قضایی خود وارد شوید.",color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
+      if(!s.pendingGuestMessage)Text(if(s.config.optBoolean("free_trial_enabled",false))"با ورود یا عضویت، هدیه مشاوره رایگان شما بلافاصله فعال می‌شود."else "برای دسترسی به میز کار حقوقی و اسناد قضایی خود وارد شوید.",color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
+      if(s.pendingGuestMessage)Surface(color=MaterialTheme.colorScheme.secondaryContainer,shape=RoundedCornerShape(14.dp)) {
+       Text("پیامت محفوظ است؛ برای دریافت پاسخ وارد شو.",Modifier.fillMaxWidth().padding(12.dp),color=MaterialTheme.colorScheme.onSecondaryContainer,style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.Bold)
+      }
       if(s.authenticated) {
        Text("خوش آمدید، ${s.user.str("full_name","دوست عزیز")}",fontWeight=FontWeight.Medium)
        Text("نشست امن شما روی این دستگاه فعال است.",style=MaterialTheme.typography.bodySmall)
@@ -62,26 +65,26 @@ import org.json.JSONObject
          Row(Modifier.padding(4.dp)) {
           listOf("otp" to "ورود پیامکی","login" to "ایمیل و رمز عبور").forEach { (key,label)->
            val selected=if(key=="otp")mode=="otp"else mode!="otp"
-           TextButton(onClick={mode=key},modifier=Modifier.weight(1f),shape=RoundedCornerShape(12.dp),colors=ButtonDefaults.textButtonColors(containerColor=if(selected)SiteNavy else Color.Transparent,contentColor=if(selected)SiteDesign.Brass300 else Color(0xFF475569))) {Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)}
+           TextButton(onClick={mode=key;vm.clearFormErrors()},enabled=!s.posting,modifier=Modifier.weight(1f),shape=RoundedCornerShape(12.dp),colors=ButtonDefaults.textButtonColors(containerColor=if(selected)SiteNavy else Color.Transparent,contentColor=if(selected)SiteDesign.Brass300 else Color(0xFF475569))) {Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)}
           }
          }
         }
        }
        if(mode!="otp")Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-        AuthTab("ورود با رمز عبور",mode=="login",Modifier.weight(1f)){mode="login"}
-        AuthTab("عضویت جدید",mode=="register",Modifier.weight(1f)){mode="register"}
+        AuthTab("ورود با رمز عبور",mode=="login",Modifier.weight(1f),enabled=!s.posting){mode="login";vm.clearFormErrors()}
+        AuthTab("عضویت جدید",mode=="register",Modifier.weight(1f),enabled=!s.posting){mode="register";vm.clearFormErrors()}
        }
-       if(mode=="register")AuthField("نام و نام خانوادگی رسمی",name,{name=it},enabled=!s.posting)
-       if(mode=="login")AuthField("آدرس ایمیل یا شماره موبایل",identifier,{identifier=it},placeholder="پست الکترونیک یا شماره موبایل",latin=true,enabled=!s.posting)
-       else AuthField("شماره موبایل",phone,{phone=it},placeholder="۰۹۱۲۳۴۵۶۷۸۹",numeric=true,latin=true,enabled=!s.posting)
-       if(mode=="register")AuthField("نشانی ایمیل (اختیاری)",email,{email=it},latin=true,enabled=!s.posting)
+       if(mode=="register")AuthField("نام و نام خانوادگی رسمی",name,{name=it},enabled=!s.posting,error=s.fieldErrors["full_name"],onEdited={vm.inputEdited("full_name")},firstError=s.firstField("full_name"),attempt=s.validationAttempt)
+       if(mode=="login")AuthField("آدرس ایمیل یا شماره موبایل",identifier,{identifier=it},placeholder="پست الکترونیک یا شماره موبایل",latin=true,enabled=!s.posting,error=s.fieldErrors["identifier"],onEdited={vm.inputEdited("identifier")},firstError=s.firstField("identifier"),attempt=s.validationAttempt)
+       else AuthField("شماره موبایل",phone,{phone=it},placeholder="۰۹۱۲۳۴۵۶۷۸۹",numeric=true,latin=true,enabled=!s.posting,error=s.fieldErrors["phone"],onEdited={vm.inputEdited("phone")},firstError=s.firstField("phone"),attempt=s.validationAttempt)
+       if(mode=="register")AuthField("نشانی ایمیل (اختیاری)",email,{email=it},latin=true,enabled=!s.posting,error=s.fieldErrors["email"],onEdited={vm.inputEdited("email")},firstError=s.firstField("email"),attempt=s.validationAttempt)
        if(mode!="otp") {
         Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
          Text("رمز عبور",style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)
          if(mode=="login")TextButton(onClick={vm.openDialog("external","بازیابی رمز عبور",JSONObject().put("url","https://hsai.ir/auth/forgot-password"))},contentPadding=PaddingValues(0.dp)){Text("فراموشی رمز عبور؟",color=Copper,style=MaterialTheme.typography.labelMedium)}
         }
-        AuthField("رمز عبور",password,{password=it},password=true,latin=true,showLabel=false,enabled=!s.posting,onDone=submit)
+        AuthField("رمز عبور",password,{password=it},password=true,latin=true,showLabel=false,enabled=!s.posting,onDone=submit,error=s.fieldErrors["password"],onEdited={vm.inputEdited("password")},firstError=s.firstField("password"),attempt=s.validationAttempt)
         }
         if(mode=="register")PasswordStrength(password)
        }
@@ -90,10 +93,7 @@ import org.json.JSONObject
         if(s.posting||!s.initialized){CircularProgressIndicator(Modifier.size(18.dp),strokeWidth=2.dp,color=MaterialTheme.colorScheme.onPrimary);Spacer(Modifier.width(8.dp))}
         Text(if(mode=="otp")"دریافت کد ورود"else if(mode=="register")"عضویت و شروع مشاوره"else "ورود به حساب کاربری",fontWeight=FontWeight.Bold)
        }
-       // The official native API has no Google OAuth callback contract. Do not simulate a successful native sign-in.
-       HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-       Text("ورود گوگل در مرورگر انجام می‌شود و به اپ منتقل نمی‌شود.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center)
-       OutlinedButton(onClick={vm.openExternal("https://hsai.ir/auth")},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),shape=RoundedCornerShape(16.dp)){Text("ورود با حساب گوگل در وب‌سایت")}
+       // Google sign-in is intentionally absent until a native server contract is available.
       }
       Text(buildAnnotatedString {
        append("ورود شما به معنای پذیرش ")
@@ -115,18 +115,18 @@ import org.json.JSONObject
  }
 }
 
-@Composable private fun AuthTab(text:String,selected:Boolean,modifier:Modifier,onClick:()->Unit) {
+@Composable private fun AuthTab(text:String,selected:Boolean,modifier:Modifier,enabled:Boolean=true,onClick:()->Unit) {
  Column(modifier) {
-  TextButton(onClick=onClick,modifier=Modifier.fillMaxWidth(),contentPadding=PaddingValues(vertical=8.dp,horizontal=0.dp)){Text(text,style=MaterialTheme.typography.labelLarge,fontWeight=if(selected)FontWeight.Bold else FontWeight.Normal,color=if(selected)SiteNavy else Color(0xFF475569))}
+  TextButton(onClick=onClick,enabled=enabled,modifier=Modifier.fillMaxWidth(),contentPadding=PaddingValues(vertical=8.dp,horizontal=0.dp)){Text(text,style=MaterialTheme.typography.labelLarge,fontWeight=if(selected)FontWeight.Bold else FontWeight.Normal,color=if(selected)SiteNavy else Color(0xFF475569))}
   HorizontalDivider(color=if(selected)SiteGold else Color(0xFFF1F5F9),thickness=if(selected)2.dp else 1.dp)
  }
 }
-@Composable private fun AuthField(label:String,value:String,onValue:(String)->Unit,placeholder:String="",password:Boolean=false,numeric:Boolean=false,latin:Boolean=false,showLabel:Boolean=true,enabled:Boolean=true,onDone:(()->Unit)?=null) {
+@Composable private fun AuthField(label:String,value:String,onValue:(String)->Unit,placeholder:String="",password:Boolean=false,numeric:Boolean=false,latin:Boolean=false,showLabel:Boolean=true,enabled:Boolean=true,onDone:(()->Unit)?=null,error:String?=null,firstError:Boolean=false,attempt:Int=0,onEdited:(()->Unit)?=null) {
  var visible by remember{mutableStateOf(false)}
  Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
   if(showLabel)Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)
   CompositionLocalProvider(LocalLayoutDirection provides if(latin)LayoutDirection.Ltr else LayoutDirection.Rtl) {
-   OutlinedTextField(value=value,onValueChange=onValue,enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).then(Modifier.semanticsLabel(label)),singleLine=true,shape=RoundedCornerShape(16.dp),
+   OutlinedTextField(value=value,onValueChange={onValue(it);onEdited?.invoke()},enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).then(Modifier.semanticsLabel(label)).then(Modifier.fieldFeedback(error,firstError,attempt)),isError=!error.isNullOrBlank(),supportingText=if(!error.isNullOrBlank()){{Text(error)}}else null,singleLine=true,shape=RoundedCornerShape(16.dp),
     placeholder={Text(if(password)"••••••••"else placeholder,style=MaterialTheme.typography.bodyMedium)},
     visualTransformation=if(password&&!visible)PasswordVisualTransformation()else VisualTransformation.None,
     keyboardOptions=KeyboardOptions(keyboardType=if(password)KeyboardType.Password else if(numeric)KeyboardType.Phone else if(latin)KeyboardType.Email else KeyboardType.Text,imeAction=if(onDone!=null)ImeAction.Done else ImeAction.Next),

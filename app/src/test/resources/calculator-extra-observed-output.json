@@ -1,0 +1,78 @@
+{
+  "expert_fee": {
+    "input": {
+      "type": "expert_fee",
+      "claim_amount_toman": 500000000,
+      "expert_kind": "financial"
+    },
+    "output": {
+      "type": "expert_fee",
+      "expert_kind": "financial",
+      "claim_amount_toman": 500000000,
+      "payable_expert_fee_toman": 10500000,
+      "advance_deposit_toman": 5250000,
+      "note": "حصهٔ کارشناسی در ابتدا به‌صورت تقریبی از سوی دادگاه تعیین و به‌عنوان هزینهٔ کارشناسی از خواهان دریافت می‌شود؛ پس از اعلام نظر کارشناس، مبلغ نهایی بر اساس حجم کار و تعرفهٔ کانون کارشناسان تعدیل می‌شود. ارقام این صفحه برآورد پلکانی است، نه تعرفهٔ قطعی.",
+      "legal_basis": "ماده ۲۵۷ قانون آیین دادرسی مدنی (قرار کارشناسی) و آیین‌نامهٔ تعرفهٔ حق‌الزحمهٔ کارشناسان رسمی دادگستری"
+    }
+  },
+  "arbitration_fee": {
+    "input": {
+      "type": "arbitration_fee",
+      "dispute_amount_toman": 300000000,
+      "agreement_mode": "tariff",
+      "agreed_fee_toman": 15000000
+    },
+    "output": {
+      "type": "arbitration_fee",
+      "dispute_amount_toman": 300000000,
+      "agreement_mode": "tariff",
+      "payable_arbitration_fee_toman": 11100000,
+      "each_party_share_toman": 5550000,
+      "note": "طرفین می‌توانند حق‌الزحمهٔ داور را آزادانه توافق کنند؛ در نبود توافق، تعرفهٔ پلکانی اعمال می‌شود. هزینهٔ داوری معمولاً بین طرفین نصف‌نصف تقسیم می‌شود، مگر آنکه در شرط داوری ترتیب دیگری مقرر شده باشد.",
+      "legal_basis": "مواد ۴۵۴ تا ۴۵۷ قانون آیین دادرسی مدنی و آیین‌نامهٔ تعرفهٔ حق‌الزحمهٔ داوران"
+    }
+  },
+  "notary_tariff": {
+    "input": {
+      "type": "notary_tariff",
+      "deed_value_toman": 8000000000,
+      "deed_kind": "sale"
+    },
+    "output": {
+      "type": "notary_tariff",
+      "deed_kind": "sale",
+      "deed_value_toman": 8000000000,
+      "notary_writing_fee_toman": 17800000,
+      "registration_fee_toman": 40000000,
+      "stamp_duty_toman": 12000000,
+      "total_payable_toman": 69800000,
+      "note": "ارقام دفترخانه بر پایهٔ ارزش معاملهٔ اعلامی و تعرفهٔ حق‌التحریر محاسبه می‌شود؛ حق‌الثبت و حق‌التمبر دولتی جداست و در بسیاری از شهرها برای املاک بالاتر از ارزش معاملاتی، سقف یا ضریب محلی اعمال می‌گردد. این محاسبه برآوردی است و رقم قطعی را دفترخانه اعلام می‌کند.",
+      "legal_basis": "ماده ۱۳۱ قانون ثبت اسناد و املاک، قانون حق‌التحریر دفاتر اسناد رسمی و قانون مالیات‌های مستقیم (حق‌التمبر)"
+    }
+  },
+  "office_services_fee": {
+    "input": {
+      "type": "office_services_fee",
+      "services": [
+        "affidavit"
+      ],
+      "copies": 1
+    },
+    "output": {
+      "type": "office_services_fee",
+      "items": [
+        {
+          "key": "affidavit",
+          "title": "ثبت و ارسال اظهارنامه",
+          "fee_toman": 120000
+        }
+      ],
+      "copies": 1,
+      "subtotal_toman": 120000,
+      "vat_toman": 12000,
+      "total_payable_toman": 132000,
+      "note": "تعرفهٔ دفاتر خدمات الکترونیک قضایی تابع تعرفهٔ مصوب مرکز آمار و فناوری اطلاعات قوهٔ قضاییه است و در سال‌های مختلف بازنگری می‌شود؛ ارقام این صفحه برآوردی و شامل ۱۰٪ مالیات بر ارزش افزودهٔ خدمات است. برخی خدمات (مانند اظهارنامه) نیازمند حضور با کارت ملی است.",
+      "legal_basis": "تعرفهٔ خدمات الکترونیک قضایی مصوب قوهٔ قضاییه و قانون مالیات بر ارزش افزوده (۱۰٪)"
+    }
+  }
+}

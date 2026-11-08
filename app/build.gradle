@@ -53,4 +53,10 @@ dependencies {
  testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0'
 }
 
-tasks.withType(Test).configureEach { maxHeapSize = "384m" }
+tasks.withType(Test).configureEach {
+ maxHeapSize = "384m"
+ // Native Robolectric extracts a large runtime; do not exhaust a RAM-backed /tmp on CI.
+ def nativeTemp = layout.buildDirectory.dir("test-tmp").get().asFile
+ systemProperty "java.io.tmpdir", nativeTemp.absolutePath
+ doFirst { nativeTemp.mkdirs() }
+}

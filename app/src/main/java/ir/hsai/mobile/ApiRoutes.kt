@@ -3,7 +3,7 @@ package ir.hsai.mobile
 object ApiRoutes {
  fun allowed(path:String, method:String):Boolean {
  val p=path.substringBefore("?")
- if (".." in p || !p.startsWith("/")) return false
+ if (".." in p || !p.startsWith("/") || Regex("(?i)%2e|%2f|%5c|%25").containsMatchIn(p)) return false
  return when {
  Regex("/health").matches(p) -> method in setOf("GET")
  Regex("/config").matches(p) -> method in setOf("GET")

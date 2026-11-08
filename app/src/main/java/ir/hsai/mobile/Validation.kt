@@ -28,3 +28,10 @@ object Validation {
   return id[9]-'0'==if(r<2) r else 11-r
  }
 }
+
+object PendingCamera {
+ fun restore(folder:java.io.File,name:String?):java.io.File? {
+  if(name==null||!Regex("legal-[A-Za-z0-9_-]+\\.jpg").matches(name))return null
+  return runCatching{java.io.File(folder,name).canonicalFile.takeIf{it.parentFile==folder.canonicalFile&&it.isFile}}.getOrNull()
+ }
+}

@@ -1,0 +1,73 @@
+{
+  "scope": "Final Android source, local compile, tests and lint; not a device run or new authenticated live audit",
+  "compile_exit_code": 0,
+  "tests_exit_code": 0,
+  "tests": {
+    "tests": 178,
+    "passed": 175,
+    "skipped": 3,
+    "failures": 0,
+    "errors": 0
+  },
+  "suites": [
+    {
+      "suite": "ir.hsai.mobile.ApiContractTest",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 24
+    },
+    {
+      "suite": "ir.hsai.mobile.AuthenticatedApiTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "passed": 0
+    },
+    {
+      "suite": "ir.hsai.mobile.CalculatorOutputTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 3
+    },
+    {
+      "suite": "ir.hsai.mobile.CoreTest",
+      "tests": 65,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 65
+    },
+    {
+      "suite": "ir.hsai.mobile.LiveApiTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "passed": 0
+    },
+    {
+      "suite": "ir.hsai.mobile.NativeUiTest",
+      "tests": 83,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 83
+    }
+  ],
+  "lint_exit_code": 0,
+  "lint_errors": 0,
+  "lint_warnings": 6,
+  "lint_warning_ids": [
+    "GradleDependency"
+  ],
+  "calculator_count": 14,
+  "new_test_count": 11,
+  "apk_delivered": false,
+  "server_deployed": false,
+  "physical_device_tested": false
+}

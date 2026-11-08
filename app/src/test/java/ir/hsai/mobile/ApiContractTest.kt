@@ -26,4 +26,43 @@ class ApiContractTest {
  assertEquals(1,ApiContract.quickQuestions(JSONObject().put("verification",JSONObject().put("quick_questions",q))).size)
  assertEquals(1,ApiContract.quickQuestions(JSONObject().put("verification",JSONObject().put("intake",JSONObject().put("questions",q)))).size)
  }
+ @Test fun brandingHistoryUnderstandsStoredVerificationJsonWithoutInventingData(){
+ val stored=JSONObject().put("verification_json",JSONObject().put("printable_document",JSONObject().put("content","متن ساختگی" )).toString())
+ assertEquals("متن ساختگی",ApiContract.verification(stored)!!.getJSONObject("printable_document").getString("content"))
+ assertNull(ApiContract.verification(JSONObject()))
+ assertNull(ApiContract.verification(JSONObject().put("verification_json","bad-json")))
+ }
+ @Test fun cleanupPresentationHidesOnlyInternalAndEmptyFieldsNotZeroOrFalse(){
+ val d=JSONObject().put("id",42).put("token","mock-only").put("blank","").put("none",JSONObject.NULL).put("empty",JSONArray()).put("total_toman",0).put("valid",false).put("future_field","محفوظ")
+ assertEquals(setOf("total_toman","valid","future_field"),UiPresentation.keys(d).toSet())
+ assertTrue(UiPresentation.primary(d).contains("total_toman"));assertEquals(listOf("future_field"),UiPresentation.secondary(d));assertEquals(42,d.getInt("id"))
+ }
+
+ @Test fun auditNormalStreamAndHistoryDecodeTheSameRichReply(){
+  val v=JSONObject().put("printable_document",JSONObject().put("title","پیش‌نویس").put("content","متن سند"))
+   .put("intake",JSONObject().put("questions",JSONArray().put(JSONObject().put("question","پرسش"))))
+  val citations=JSONArray().put(JSONObject().put("law_name","قانون ساختگی"))
+  val base=JSONObject().put("message_id",7).put("answer","پاسخ نمونه").put("verification",v).put("cited_articles",citations).put("suggestions",JSONArray().put("ادامه نمونه"))
+  val stream=JSONObject().put("message_id",7).put("verification",v).put("cited_articles",citations).put("suggestions",JSONArray().put("ادامه نمونه")).put("assistant_message",JSONObject().put("id",7).put("content","پاسخ نمونه"))
+  val history=JSONObject().put("id",7).put("content","پاسخ نمونه").put("verification_json",v.toString()).put("cited_articles",citations).put("suggestions","[\"ادامه نمونه\"]")
+  val normal=ApiContract.chatMessage(base)
+  listOf(stream,history).forEach { data->val actual=ApiContract.chatMessage(data);assertEquals(normal.text,actual.text);assertEquals(normal.id,actual.id);assertEquals(normal.document.toString(),actual.document.toString());assertEquals(1,actual.questions.size);assertEquals(1,actual.citations.size);assertEquals(normal.suggestions,actual.suggestions)}
+ }
+ @Test fun auditNestedVerificationPreservesOuterFieldsAndInnerTakesPriority(){
+  val data=JSONObject().put("verification",JSONObject().put("citizen_guide","راهنمای بیرونی").put("calculator",JSONObject().put("total_toman",0)))
+   .put("assistant_message",JSONObject().put("content","").put("verification",JSONObject().put("citizen_guide","راهنمای درونی")))
+  val message=ApiContract.chatMessage(data,"متن جریانی",listOf(JSONObject().put("law_name","مرجع")))
+  assertEquals("متن جریانی",message.text);assertEquals("راهنمای درونی",message.verification!!.getString("citizen_guide"));assertEquals(0,message.verification!!.getJSONObject("calculator").getInt("total_toman"));assertEquals(1,message.citations.size)
+ }
+ @Test fun auditVerificationJsonObjectIsNotSilentlyLost(){assertNotNull(ApiContract.verification(JSONObject().put("verification_json",JSONObject().put("mode","document"))))}
+ @Test fun auditReminderRejectsMissingAndDifferentAccounts(){assertTrue(ReminderPrivacy.sameOwner("42","42"));assertFalse(ReminderPrivacy.sameOwner("42","43"));assertFalse(ReminderPrivacy.sameOwner(null,"42"));assertFalse(ReminderPrivacy.sameOwner("42",null));assertFalse(ReminderPrivacy.sameOwner("",""))}
+ @Test fun auditRejectsEncodedPathTraversalButNotEncodedLawQueries(){assertFalse(ApiRoutes.allowed("/billing/payments/%2e%2e%2fme","GET"));assertFalse(ApiRoutes.allowed("/billing/payments/%252e%252e","GET"));assertTrue(ApiRoutes.allowed("/laws?q=%2e%2e%2f","GET"))}
+ @Test fun auditHistorySuggestedActionsAliasRemainsVisibleWithoutExecutingActions(){
+ val data=JSONObject().put("suggested_actions",JSONArray().put("پیشنهاد اول").put(JSONObject().put("title","پیشنهاد دوم").put("url","https://example.com")))
+ assertEquals(listOf("پیشنهاد اول","پیشنهاد دوم"),ApiContract.chatMessage(data).suggestions)
+ }
+ @Test fun auditGenericDetailsHideCredentialAndInternalPromptKeysCaseInsensitively(){
+ val d=JSONObject().put("TOKEN","mock-token").put("client_secret","mock-secret").put("system_prompt","internal fixture").put("chain_of_thought","internal fixture").put("quick_summary","خلاصه قابل نمایش")
+ assertEquals(listOf("quick_summary"),UiPresentation.keys(d))
+ }
 }

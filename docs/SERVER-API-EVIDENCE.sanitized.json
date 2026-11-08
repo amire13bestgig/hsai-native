@@ -1,0 +1,179 @@
+{
+  "notice": "Sanitized request samples and projected observations, not complete raw responses. No credentials, private identity, account or record IDs. Existing live audit only; do not replay writes against production without permission.",
+  "scope": "Live HTTP/API testing as ordinary user; not an Android device run or server source-code audit. No credentials retained.",
+  "api_requests_in_completed_live_audit": 155,
+  "findings": [
+    {
+      "id": "S-01",
+      "request": {
+        "method": "POST",
+        "path": "/chat",
+        "body": {
+          "conversation_id": null,
+          "message": "تست فنی با اطلاعات کاملاً ساختگی: فردی مدعی است وجهی به عنوان قرض پرداخت کرده ولی پس نگرفته است؛ فقط توضیح بده برای ارزیابی به چه مدارک و اطلاعاتی نیاز است. سند تولید نکن و تاریخ فرض نکن."
+        }
+      },
+      "also_observed_in": "POST /chat/stream done",
+      "observation": {
+        "answer_precedent": 824,
+        "returned_citation_precedent": 704,
+        "occurrences": [
+          "normal_chat",
+          "stream_done"
+        ],
+        "server_verified": true,
+        "server_confidence_score": 99
+      }
+    },
+    {
+      "id": "S-02",
+      "request": {
+        "method": "POST",
+        "path": "/scanner/analyze",
+        "body": {
+          "kind": "notice",
+          "scan_mode": "sana_notice",
+          "text": "این متن ابلاغیه واقعی نیست و فقط برای تست فنی است. شماره پرونده، مرجع، تاریخ ابلاغ و مهلت اعتراض عمداً مشخص نشده؛ تاریخ یا مهلت قانونی حدس زده نشود."
+        }
+      },
+      "observation": {
+        "input_has_notification_date": false,
+        "legal_days": 20,
+        "notice_jalali": "1405/8/17",
+        "deadline_jalali": "1405/9/7",
+        "deadline_iso": "2026-11-28"
+      }
+    },
+    {
+      "id": "S-03",
+      "request": {
+        "method": "POST",
+        "path": "/chat",
+        "body_shape": {
+          "conversation_id": null,
+          "message": "این تصویر کاملاً ساختگی و فقط تست فنی است. فقط کد انگلیسی که با VISION آغاز شده را از خود تصویر بخوان و برگردان. توضیح حقوقی، سند یا تاریخ تولید نکن.",
+          "image_base64": "data:image/<png or jpeg>;base64,<synthetic image omitted>"
+        }
+      },
+      "observation": {
+        "png_bytes": 22209,
+        "jpeg_bytes": 34061,
+        "png_code_read": false,
+        "jpeg_code_read": false,
+        "misclassification": "Both synthetic non-legal images described as official judicial notices."
+      }
+    },
+    {
+      "id": "S-04 / S-06",
+      "request": {
+        "method": "POST",
+        "path": "/documents",
+        "body": {
+          "doc_type": "اظهارنامه",
+          "title": "سند دستی موقت آزمونی",
+          "subject": "فقط تست فنی با متن ثابت؛ نام و اطلاعات شخصی واقعی استفاده نشود",
+          "details": "داده کاملاً ساختگی",
+          "content": "این متن ثابت فقط تست فنی است و اعتبار قضایی ندارد."
+        }
+      },
+      "observation": {
+        "manual_content_preserved": false,
+        "put_edit_preserved": true,
+        "generated_unconfirmed_profile_identity": "Own-profile values removed, not evidence of cross-account access",
+        "generated_default_demand_days": 10
+      }
+    },
+    {
+      "id": "S-05",
+      "request": {
+        "method": "GET",
+        "path": "/consultations/{own_test_id}"
+      },
+      "observation": {
+        "history_message_keys": [
+          "id",
+          "conversation_id",
+          "role",
+          "content",
+          "cited_articles",
+          "suggested_actions",
+          "feedback",
+          "created_at"
+        ],
+        "fresh_verification_metadata_absent": true,
+        "text_matched": true,
+        "feedback_persisted": true
+      }
+    },
+    {
+      "id": "S-06",
+      "observations": [
+        {
+          "request": "POST /documents without subject",
+          "http_status": 400
+        },
+        {
+          "request": "POST /consultations with title only",
+          "http_status": 400
+        },
+        {
+          "request": "POST /chat with null conversation_id",
+          "conversation_created": true
+        }
+      ]
+    },
+    {
+      "id": "S-07",
+      "observation": "Real-estate followup suggestions returned for a loan/debt conversation."
+    }
+  ],
+  "successful_observations": {
+    "stream_stage_count": 4,
+    "stream_delta_count": 12,
+    "stream_done_count": 1,
+    "stream_delta_equals_done_answer": true,
+    "docx_status": 200,
+    "docx_bytes": 9574,
+    "docx_valid_ooxml": true,
+    "docx_contains_edited_marker": true,
+    "anonymous_me_status": 401,
+    "arithmetic_consistency": {
+      "court_fee": true,
+      "mehrieh": true,
+      "delay_damage": true,
+      "inheritance": true,
+      "labor": true,
+      "lawyer_fee": true,
+      "diyeh": true,
+      "execution_fee": true,
+      "inheritance_tax": true,
+      "capital_gains_tax": true,
+      "expert_fee": true,
+      "arbitration_fee": true,
+      "notary_tariff": true,
+      "office_services_fee": true
+    },
+    "legal_rate_certification": false
+  },
+  "quota_counter_deltas": {
+    "consultations_used": 4,
+    "messages_used": 8,
+    "documents_used": 2
+  },
+  "deleted_test_entities": {
+    "consultations": 4,
+    "documents": 2,
+    "scanner": 4,
+    "deadlines": 2
+  },
+  "all_remaining_test_lists_empty": true,
+  "not_tested": [
+    "payment or gateway execution/verification",
+    "registration/OTP/password/profile changes",
+    "ticket writes (no deletion endpoint)",
+    "cross-account authorization with second account",
+    "quota exhaustion (account unlimited)",
+    "physical-device UI and SAF/provider behaviour",
+    "live guided-intake branches (quick_questions empty in observed replies)"
+  ]
+}

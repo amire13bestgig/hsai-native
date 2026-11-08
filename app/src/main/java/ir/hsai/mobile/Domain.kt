@@ -1,6 +1,6 @@
 package ir.hsai.mobile
 
-data class FormField(val key:String,val label:String,val options:List<Pair<String,String>> = emptyList(),val numeric:Boolean=true,val boolean:Boolean=false)
+data class FormField(val key:String,val label:String,val options:List<Pair<String,String>> = emptyList(),val numeric:Boolean=true,val boolean:Boolean=false,val multiple:Boolean=false)
 data class Calculator(val id:String,val title:String,val fields:List<FormField>)
 object Domain {
  val calculators=listOf(
@@ -14,8 +14,18 @@ Calculator("diyeh","دیه و خسارت",listOf(FormField("full_diyeh_toman","�
 Calculator("execution_fee","هزینه اجرای حکم",listOf(FormField("execution_amount_toman","مبلغ اجراییه (تومان)",listOf(),true,false),FormField("channel","مرجع اجرا",listOf("court" to "اجرای احکام دادگستری","registry" to "اجرای اسناد رسمی ثبت"),false,false),FormField("settled_amicably","سازش طرفین",listOf("false" to "خیر","true" to "بله"),false,true))),
 Calculator("inheritance_tax","مالیات بر ارث",listOf(FormField("heir_class","طبقه وراث",listOf("1" to "طبقه اول","2" to "طبقه دوم","3" to "طبقه سوم"),false,false),FormField("bank_deposits_toman","سپرده‌های بانکی (تومان)",listOf(),true,false),FormField("real_estate_tax_value_toman","ارزش مالیاتی ملک (تومان)",listOf(),true,false),FormField("vehicles_value_toman","ارزش خودرو (تومان)",listOf(),true,false),FormField("stocks_value_toman","ارزش سهام (تومان)",listOf(),true,false))),
 Calculator("capital_gains_tax","مالیات عایدی سرمایه",listOf(FormField("asset_type","نوع دارایی",listOf("real_estate" to "ملک و مستغلات","vehicle" to "خودرو","gold_fx" to "طلا، سکه و ارز"),false,false),FormField("buy_price_toman","قیمت خرید",listOf(),true,false),FormField("sell_price_toman","قیمت فروش",listOf(),true,false),FormField("holding_months","مدت نگهداری (ماه)",listOf(),true,false),FormField("inflation_pct","درصد تورم",listOf(),true,false),FormField("is_primary_residence","محل سکونت اصلی",listOf("false" to "خیر","true" to "بله"),false,true))),
+Calculator("expert_fee","هزینه کارشناسی",listOf(FormField("claim_amount_toman","ارزش موضوع کارشناسی (تومان)"),FormField("expert_kind","نوع کارشناسی",listOf("financial" to "مالی و حسابداری","technical" to "فنی، ساختمان و ارزیابی ملک"),false))),
+Calculator("arbitration_fee","حق‌الزحمه داوری",listOf(FormField("dispute_amount_toman","مبلغ اختلاف (تومان)"),FormField("agreement_mode","مبنای حق‌الزحمه",listOf("tariff" to "تعرفه پلکانی","agreed" to "مبلغ توافقی طرفین"),false),FormField("agreed_fee_toman","حق‌الزحمه توافقی داور (تومان)"))),
+Calculator("notary_tariff","تعرفه دفتر اسناد رسمی",listOf(FormField("deed_value_toman","ارزش معامله یا موضوع سند (تومان)"),FormField("deed_kind","نوع سند رسمی",listOf("sale" to "بیع ملک یا خودرو","lease" to "اجاره‌نامه","agency" to "وکالت‌نامه","settlement" to "صلح‌نامه"),false))),
+Calculator("office_services_fee","خدمات الکترونیک قضایی",listOf(FormField("services","خدمات مورد نیاز",listOf("affidavit" to "ثبت و ارسال اظهارنامه","petition" to "ثبت دادخواست و شکواییه","clearance" to "گواهی عدم سوءپیشینه","notice" to "ابلاغ الکترونیک و اخطار","certified_copy" to "گواهی امضا و تصدیق اسناد"),false,false,true),FormField("copies","تعداد نسخه"))),
 )
  val labels=mapOf(
+"expert_kind" to "نوع کارشناسی", "payable_expert_fee_toman" to "هزینه تقریبی کارشناسی", "advance_deposit_toman" to "علی‌الحساب اولیه کارشناسی",
+"dispute_amount_toman" to "مبلغ اختلاف", "agreement_mode" to "مبنای حق‌الزحمه", "agreed_fee_toman" to "حق‌الزحمه توافقی", "payable_arbitration_fee_toman" to "حق‌الزحمه داور", "each_party_share_toman" to "سهم هر طرف",
+"deed_kind" to "نوع سند", "deed_value_toman" to "ارزش سند", "notary_writing_fee_toman" to "حق‌التحریر دفترخانه", "registration_fee_toman" to "حق‌الثبت", "stamp_duty_toman" to "حق‌التمبر دولتی",
+"services" to "خدمات انتخاب‌شده", "items" to "ریز خدمات", "copies" to "تعداد نسخه", "subtotal_toman" to "جمع خدمات", "vat_toman" to "مالیات بر ارزش افزوده",
+"text" to "متن",
+"calculator" to "نتیجه محاسبه", "article_count" to "تعداد مواد", "authority_code" to "شناسه پیگیری", "updated_at" to "آخرین تغییر", "source_type" to "نوع منبع", "category" to "دسته‌بندی",
 "calc_card" to "خلاصه محاسبه", "citizen_guide" to "راهنمای عملی", "sana_reassurance" to "راهنمای ابلاغیه", "red_flags" to "ریسک‌های قرارداد", "practical_tips" to "نکات کاربردی", "quick_summary" to "خلاصه",
 "type" to "نوع محاسبه",
 "claim_category" to "نوع دعوا",

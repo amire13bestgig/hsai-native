@@ -17,6 +17,7 @@ val SupportAgent=icon("SupportAgent","M4 13v-1a8 8 0 0 1 16 0v1M4 12H3v6h4v-6H4z
 val PersonOutline=icon("PersonOutline","M20 21v-2a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v2M16 6a4 4 0 1 1-8 0 4 4 0 0 1 8 0z")
 val Balance=icon("Balance","M12 3v18M7 21h10M4 7h16M6 7l-4 8h8L6 7zm12 0-4 8h8l-4-8z")
 val Add=icon("Add","M12 5v14M5 12h14")
+val MoreVert=icon("MoreVert","M12 5h0.01M12 12h0.01M12 19h0.01")
 val Menu=icon("Menu","M4 6h16M4 12h16M4 18h16")
 val CloudDone=icon("CloudDone","m5 12 4 4L19 6")
 val CloudOff=icon("CloudOff","m6 6 12 12M6 18 18 6")

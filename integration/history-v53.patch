@@ -1,0 +1,24 @@
+--- a/server/routes/v1.js
++++ b/server/routes/v1.js
+@@ -7,7 +7,7 @@
+   if (!conv) return fail(res, 404, 'NOT_FOUND', 'گفتگو یافت نشد.');
+ 
+   const rawMsgs = await db.all(
+-    'SELECT id, conversation_id, role, content, cited_articles_json, suggested_actions_json, feedback, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC',
++    'SELECT id, conversation_id, role, content, cited_articles_json, suggested_actions_json, verification_json, feedback, created_at FROM messages WHERE conversation_id = ? ORDER BY id ASC',
+     conv.id
+   );
+ 
+@@ -18,6 +18,12 @@
+     content: m.content,
+     cited_articles: JSON.parse(m.cited_articles_json || '[]'),
+     suggested_actions: JSON.parse(m.suggested_actions_json || '[]'),
++    verification: (() => {
++      try {
++        const value = JSON.parse(m.verification_json || 'null');
++        return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
++      } catch { return null; }
++    })(),
+     feedback: m.feedback,
+     created_at: m.created_at
+   }));

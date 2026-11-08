@@ -29,6 +29,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
  val s by vm.state.collectAsStateWithLifecycle()
  CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
   HsaiTheme(if(s.entryComplete)s.dark else false) {
+   key(vm.sessionVersion,s.authenticated,s.user.optLong("id")) {
    if(!s.initialized) {
     Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){CircularProgressIndicator()}
    } else if(!s.entryComplete) {
@@ -43,7 +44,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
      val layout=workspaceLayout(maxWidth.value)
      val drawer=rememberDrawerState(DrawerValue.Closed)
      val scope=rememberCoroutineScope()
-     BackHandler(enabled=s.dialog!=null||drawer.isOpen||s.screen!=Screen.CHAT||s.backDepth>0) {
+     BackHandler(enabled=s.dialog!=null||s.pane!=null||drawer.isOpen||s.screen!=Screen.CHAT||s.backDepth>0) {
       if(drawer.isOpen)scope.launch{drawer.close()}else vm.goBack()
      }
      val select:(Screen)->Unit={if(vm.state.value.screen!=it)vm.navigate(it);scope.launch{drawer.close()}}
@@ -52,16 +53,21 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
        if(layout!=WorkspaceLayout.COMPACT)WorkspaceMenu(s,vm,select,layout==WorkspaceLayout.RAIL)
        Scaffold(modifier=Modifier.weight(1f),containerColor=MaterialTheme.colorScheme.background,
         snackbarHost={SnackbarHost(snackbar)},topBar={
-         TopAppBar(title={Text(if(s.screen==Screen.CHAT&&s.conversationId==null)"گفتگوی حقوقی جدید"else s.screen.title,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,maxLines=1)},
+         TopAppBar(title={Text(if(s.screen==Screen.CHAT&&s.conversationId==null)"گفتگوی حقوقی جدید"else s.screen.title,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)},
           navigationIcon={if(layout==WorkspaceLayout.COMPACT)IconButton(onClick={scope.launch{drawer.open()}}){Icon(NativeIcons.Menu,"منوی اصلی")}},
           actions={
-           if(layout!=WorkspaceLayout.COMPACT)TextButton(onClick={vm.navigate(Screen.CALCULATORS)}){Text("محاسبه مهریه و هزینه‌ها")}
            IconButton(onClick={vm.navigate(Screen.ACCOUNT)}){Icon(NativeIcons.PersonOutline,if(s.authenticated)"حساب کاربری"else "ورود یا عضویت")}
            IconButton(onClick=vm::toggleTheme){Icon(if(s.dark)NativeIcons.LightMode else NativeIcons.DarkMode,"تغییر حالت روشن و تیره")}
           },colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.surface))
         }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-         if(!s.online)Surface(color=MaterialTheme.colorScheme.errorContainer){Text("اتصال برقرار نشد؛ اینترنت را بررسی و دوباره تلاش کنید.",Modifier.fillMaxWidth().padding(12.dp))}
+         if(s.reminderNotice)Surface(color=MaterialTheme.colorScheme.secondaryContainer) {
+          Column(Modifier.fillMaxWidth().padding(12.dp)) {
+           Text("تنظیم یادآورها به‌روز شد؛ یادآورهای قبلی را بررسی و در صورت نیاز دوباره ثبت کنید.",style=MaterialTheme.typography.bodySmall)
+           Row {TextButton(onClick={vm.navigate(Screen.DEADLINES)}){Text("بررسی مهلت‌ها")};TextButton(onClick=vm::dismissReminderNotice){Text("متوجه شدم")}}
+          }
+         }
+         if(!s.online)Surface(color=MaterialTheme.colorScheme.errorContainer){Column(Modifier.fillMaxWidth().padding(12.dp)){Text("اتصال برقرار نشد؛ اینترنت را بررسی و دوباره تلاش کنید.");TextButton(onClick={vm.checkConnection()},enabled=!s.checkingConnection){Text(if(s.checkingConnection)"در حال بررسی اتصال…"else "بررسی اتصال")}}}
          if(s.posting&&s.screen!=Screen.CHAT)LinearProgressIndicator(Modifier.fillMaxWidth())
          when(s.screen) {
           Screen.CHAT->ChatScreen(s,vm,onImage,onCamera,onEditImage)
@@ -85,6 +91,8 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
    }
   }
  }
+}
+
 }
 
 @Composable private fun WorkspaceMenu(s:AppUiState,vm:AppViewModel,select:(Screen)->Unit,rail:Boolean) {
@@ -134,7 +142,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
 }
 @Composable private fun SidebarLink(title:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier,onClick:()->Unit) {
  Surface(onClick=onClick,modifier=modifier,shape=RoundedCornerShape(10.dp),color=Color.White.copy(alpha=.05f),contentColor=Color(0xFFDFE7EF),border=BorderStroke(1.dp,Color.White.copy(alpha=.1f))) {
-  Row(Modifier.heightIn(min=44.dp).padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+  Row(Modifier.heightIn(min=48.dp).padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)) {
    Icon(icon,null,Modifier.size(16.dp),tint=SiteDesign.Brass300);Text(title,Modifier.weight(1f),style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.SemiBold)
   }
  }

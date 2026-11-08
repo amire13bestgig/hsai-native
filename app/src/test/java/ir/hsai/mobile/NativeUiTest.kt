@@ -23,6 +23,7 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @LooperMode(LooperMode.Mode.PAUSED)
 class NativeUiTest {
+ @org.junit.After fun releaseNativeRenderCaches(){System.gc();System.runFinalization()}
  @get:Rule val compose=createAndroidComposeRule<MainActivity>()
  private val vm get()=ViewModelProvider(compose.activity)[AppViewModel::class.java]
  private fun ready(login:Boolean=true){
@@ -59,6 +60,7 @@ class NativeUiTest {
    subscription=JSONObject().put("plan_name","اشتراک آزمایشی").put("days_remaining",30),items=if(item==null)emptyList()else listOf(item,item))
  }
  private fun screenshot(name:String) {
+  if(System.getenv("HSAI_SKIP_SCREENSHOTS")=="1")return
   val file=File("build/native-screenshots/review/$name.png");file.parentFile?.mkdirs()
   compose.runOnIdle {
    val globalClass=Class.forName("android.view.WindowManagerGlobal")
@@ -91,7 +93,7 @@ class NativeUiTest {
   compose.onNodeWithContentDescription("نام و نام خانوادگی رسمی").assertExists()
   compose.onNodeWithContentDescription("شماره موبایل").assertExists()
  }
- @Test fun restoredSessionStillShowsEntryBeforeWorkspace() {
+ @Test fun explicitEntryGateStillRequiresContinueWhenRequested() {
   ready();state(fixture(Screen.ACCOUNT).copy(entryComplete=false))
   compose.onNodeWithText("ورود به میز کار حق‌سنج").assertExists()
   compose.onNodeWithText("ادامه به میز کار").performScrollTo().performClick()
@@ -215,7 +217,7 @@ data: {"answer":"متن پاسخ","conversation_id":42,"message_id":77,"subscrip
  }
  @Test fun v53GlossaryUsesWebsiteContentAndLocalSearch() {
   ready();state(fixture(Screen.LAWS))
-  compose.onNodeWithText("معنی کلمات دادگاه").performScrollTo().performClick()
+  compose.onNodeWithText("واژه‌نامه").performScrollTo().performClick()
   compose.onNodeWithText("فرهنگ لغات خودمانی دادگاه و ابلاغیه ثنا").assertExists()
   compose.onNode(hasSetTextAction()).performTextInput("اظهارنامه")
   compose.onNodeWithText("اظهارنامه قضایی").assertExists();compose.onNodeWithText("خواهان و خوانده").assertDoesNotExist();screenshot("v53-glossary")
@@ -386,5 +388,214 @@ data: {"answer":"متن پاسخ","conversation_id":42,"message_id":77,"subscrip
   compose.runOnIdle{vm.loginRequired(Screen.CHAT)}
   compose.runOnIdle{compose.activity.onBackPressedDispatcher.onBackPressed()}
   assertEquals(Screen.CHAT,vm.state.value.screen);assertTrue(vm.state.value.entryComplete)
+ }
+
+ @Test fun brandingGuestPromptExplainsThatDraftIsKept() {
+  ready(login=false);compose.runOnIdle{vm.setDraft("پیام محفوظ");vm.sendChat()}
+  compose.onNodeWithText("پیامت محفوظ است؛ برای دریافت پاسخ وارد شو.").assertExists()
+ }
+ @Test fun brandingSuccessfulGuestLoginShowsExplicitReadyMessageAction() {
+  ready(login=false);recordRequests("""{"ok":true,"data":{"token":"local-brand-fixture","user":{"full_name":"ساختگی"},"items":[]}}""")
+  compose.runOnIdle{vm.setDraft("متن آماده");vm.sendChat();vm.authenticate(false,mapOf("identifier" to "mock@example.com","password" to "mock-password"))}
+  compose.waitUntil(10000){!vm.state.value.posting&&vm.state.value.authenticated}
+  compose.onNodeWithText("ارسال پیام آماده‌شده").assertExists();assertTrue(vm.state.value.draftReady);assertTrue(vm.state.value.messages.isEmpty());screenshot("brand-draft-ready")
+ }
+ @Test fun brandingUnknownNetworkResultCannotBeRetriedBlindly() {
+  ready();state(fixture(Screen.CHAT).copy(failedChat=JSONObject().put("message","پیام نامشخص"),chatStatus=ChatStatus.UNKNOWN))
+  val requests=recordRequests("""{"ok":true,"data":{"answer":"ساختگی"}}""")
+  compose.runOnIdle{vm.sendChat(true)}
+  assertEquals("retryChat",vm.state.value.dialog!!.kind);assertTrue(requests.isEmpty())
+  compose.onNodeWithText("ارسال مجدد با تأیید من").assertIsNotEnabled()
+ }
+ @Test fun brandingReopenedHistoryPreservesReturnedRichData() {
+  ready();state(fixture(Screen.HISTORY))
+  stub("""{"ok":true,"data":{"messages":[{"id":77,"role":"assistant","content":"پاسخ ساختگی","verification":{"printable_document":{"title":"سند محفوظ","content":"متن سند محفوظ"},"quick_questions":[{"question":"پرسش محفوظ","options":["الف","ب"]}]}}]}}""")
+  compose.runOnIdle{vm.openConversation(42)};compose.waitUntil(10000){!vm.state.value.posting}
+  assertEquals("متن سند محفوظ",vm.state.value.messages.last().document!!.getString("content"));assertEquals(1,vm.state.value.messages.last().questions.size)
+ }
+ @Test fun brandingPersianDateUsesPersianCalendarWithoutChangingSourceDate() {
+  ready();assertTrue(Validation.digits(dateFa("2026-03-21")).contains("1405"))
+ }
+ @Test @Config(qualifiers="w1280dp-h800dp-land-mdpi") fun brandingLandscapeChatHasFlatCardsAndUserLogo() {
+  ready(login=false);compose.onAllNodesWithContentDescription("نشان حق‌سنج").onFirst().assertExists();screenshot("brand-chat-landscape")
+ }
+
+ @Test fun cleanupDocumentKeepsSecondaryActionsInAccessibleMenu() {
+  ready();val item=JSONObject().put("id",42).put("title","سند آزمایشی منو").put("doc_type","اظهارنامه")
+  state(fixture(Screen.DOCUMENTS).copy(items=listOf(item)))
+  compose.onNodeWithText("ویرایش",substring=false).assertDoesNotExist()
+  compose.onNodeWithContentDescription("گزینه‌های سند سند آزمایشی منو").performScrollTo().performClick()
+  compose.onNodeWithText("ویرایش",substring=false).assertExists();compose.onNodeWithText("دریافت Word").assertExists()
+  compose.onNodeWithText("حذف سند",substring=false).performClick()
+  assertEquals("delete",vm.state.value.dialog!!.kind);assertEquals(42L,vm.state.value.dialog!!.data.optLong("id"))
+ }
+ @Test fun cleanupUnknownResultFieldsAreOptionalButValuesRemainAccessible() {
+  ready();state(fixture(Screen.CALCULATORS).copy(result=JSONObject().put("total_toman",0).put("future_extra_field","اطلاعات محفوظ")))
+  compose.onNodeWithText("اطلاعات محفوظ").assertDoesNotExist()
+  compose.onNodeWithText("جزئیات تکمیلی (۱)").performScrollTo().performClick()
+  compose.onNodeWithText("اطلاعات محفوظ").assertExists()
+
+ }
+
+ @Test fun cleanupAllTopicsRemainAvailableBehindDisclosure() {
+  ready(login=false)
+  compose.onNodeWithText("ارث و میراث خانوادگی").assertDoesNotExist()
+  compose.onNodeWithText("موضوع‌های بیشتر").performScrollTo().performClick()
+  compose.onNodeWithText("ارث و میراث خانوادگی").assertExists()
+ }
+ @Test fun cleanupAccountDoesNotExposeTechnicalApiOrAdminPromotion() {
+  ready();state(fixture(Screen.ACCOUNT).copy(user=JSONObject().put("full_name","نمونه").put("role","admin")))
+  compose.onNodeWithText("اطلاعات حساب فقط از API رسمی دریافت می‌شود.").assertDoesNotExist()
+  compose.onNodeWithText("پنل رسمی مدیریت در مرورگر").assertDoesNotExist()
+ }
+ @Test fun cleanupIsoDateKeepsLtrIsolationInRtlApp() {
+  ready();val f=fixture(Screen.DEADLINES);state(f.copy(items=f.items.take(1)))
+  compose.onNodeWithText("میلادی: \u20662026-11-25\u2069").assertExists()
+ }
+
+ @Test fun auditGoogleLoginIsAbsentInLoginAndRegistration(){
+  ready();compose.onNodeWithText("ورود با حساب گوگل در وب‌سایت").assertDoesNotExist();compose.onNodeWithText("ورود گوگل در مرورگر انجام می‌شود و به اپ منتقل نمی‌شود.").assertDoesNotExist()
+  compose.onNodeWithText("عضویت جدید",substring=false).performClick();compose.onNodeWithText("ورود با حساب گوگل در وب‌سایت").assertDoesNotExist()
+ }
+ @Test fun auditRichOnlyResponseNeverPretendsToStillBeLoading(){
+  ready();val message=ChatMessage("assistant","",document=JSONObject().put("title","برگه بدون متن چت").put("content","متن پیش‌نویس"))
+  state(fixture(Screen.CHAT).copy(messages=listOf(message)))
+  compose.onNodeWithText("در حال دریافت پاسخ…").assertDoesNotExist();compose.onNodeWithText("مشاهده برگه قضایی آماده").assertExists()
+ }
+ @Test fun auditSuggestionOnlyPrefillsDraftAndDoesNotAutoSend(){
+  ready();state(fixture(Screen.CHAT).copy(messages=listOf(ChatMessage("assistant","پاسخ ساختگی",suggestions=listOf("پیشنهاد ساختگی قابل ویرایش")))))
+  compose.onNodeWithText("پیشنهاد ساختگی قابل ویرایش").performScrollTo().performClick()
+  assertEquals("پیشنهاد ساختگی قابل ویرایش",vm.state.value.draft);assertEquals(1,vm.state.value.messages.size);assertFalse(vm.state.value.posting)
+ }
+ @Test fun auditDoneIsTerminalAndPreservesOuterStreamMetadata(){
+  ready();state(fixture(Screen.CHAT).copy(draft="تست محلی",streaming=true))
+  stub("event: delta\ndata: {\"chunk\":\"پاسخ نهایی\"}\n\nevent: done\ndata: {\"message_id\":91,\"conversation_id\":31,\"verification\":{\"printable_document\":{\"content\":\"سند محفوظ\"}},\"assistant_message\":{\"content\":\"پاسخ نهایی\"}}\n\nevent: error\ndata: {\"message\":\"رویداد دیررس نباید پاسخ نهایی را خراب کند\"}\n\n",stream=true)
+  compose.runOnIdle{vm.sendChat()};compose.waitUntil(15000){!vm.state.value.posting}
+  assertEquals(ChatStatus.COMPLETED,vm.state.value.chatStatus);assertNull(vm.state.value.failedChat);assertEquals("سند محفوظ",vm.state.value.messages.last().document!!.getString("content"))
+ }
+ @Test fun auditNewDialogDoesNotInheritOldPageError(){
+  ready();state(fixture(Screen.DOCUMENTS).copy(error="خطای درخواست قبلی"))
+  compose.runOnIdle{vm.openDialog("documentCreate","سند تازه")};assertTrue(vm.state.value.error.isBlank())
+ }
+
+ @Test fun auditWordExportAsksUserForDestination(){
+  ready();state(fixture(Screen.DOCUMENTS));compose.runOnIdle{vm.download(42)};compose.waitForIdle()
+  val started=org.robolectric.Shadows.shadowOf(compose.activity).nextStartedActivityForResult
+  assertNotNull(started);assertEquals(android.content.Intent.ACTION_CREATE_DOCUMENT,started.intent.action)
+  assertEquals("application/vnd.openxmlformats-officedocument.wordprocessingml.document",started.intent.type)
+ }
+
+ @Test fun internalVaultClearsOrphanPaymentWhenSessionIsMissingOrCorrupt(){
+  ready();val prefs=compose.activity.getSharedPreferences("native_vault",android.content.Context.MODE_PRIVATE);val vault=SecureSession(compose.activity)
+  prefs.edit().remove("session").putString("payment","old-test-payment").commit();assertNull(vault.read());assertTrue(vault.authority.isBlank())
+  prefs.edit().putString("session","broken").putString("payment","old-test-payment").commit();assertNull(vault.read());assertTrue(vault.authority.isBlank());assertFalse(prefs.contains("session"))
+ }
+ @Test fun internalDocumentFormShowsAndFocusesFirstInvalidField(){
+  ready();state(fixture(Screen.DOCUMENTS).copy(dialog=AppDialog("documentCreate","سند تازه")))
+  compose.onNodeWithText("تنظیم هوشمند برگه").performScrollTo().performClick();compose.waitForIdle()
+  assertEquals(listOf("title","details"),vm.state.value.fieldErrors.keys.toList())
+  compose.onNodeWithContentDescription("عنوان برگه").assertIsFocused()
+  compose.onAllNodesWithText("شرح ماجرا را بنویسید.").onFirst().assertExists()
+  compose.onNodeWithContentDescription("عنوان برگه").performTextInput("عنوان آزمایشی");compose.waitForIdle()
+  compose.onNodeWithContentDescription("عنوان برگه").assertIsFocused();assertFalse(vm.state.value.fieldErrors.containsKey("title"))
+  compose.onNodeWithText("تنظیم هوشمند برگه").performScrollTo().performClick();compose.waitForIdle();compose.onNodeWithContentDescription("شرح ماجرا و خواسته").assertIsFocused()
+ }
+ @Test @Config(qualifiers="w1280dp-h800dp-land-mdpi") fun internalTabletDocumentDetailsStayAlongsideList(){
+  ready();val f=fixture(Screen.DOCUMENTS);state(f.copy(items=f.items.take(1)))
+  stub("""{"ok":true,"data":{"id":1,"title":"سند پنلی","content":"متن محفوظ در پنل"}}""")
+  compose.onNodeWithText("مشاهده",substring=false).performClick();compose.waitUntil(10000){!vm.state.value.posting}
+  assertNull(vm.state.value.dialog);assertEquals("documentView",vm.state.value.pane!!.kind)
+  compose.onNodeWithText("متن محفوظ در پنل").assertExists();compose.onNodeWithText("تنظیم برگه جدید").assertExists()
+ }
+ @Test fun internalDocumentEditSurvivesMovingBetweenPaneAndDialog(){
+  ready();val item=JSONObject().put("id",12).put("title","عنوان قدیم").put("content","متن قدیم")
+  state(fixture(Screen.DOCUMENTS).copy(pane=AppDialog("documentEdit","ویرایش",item),documentDrafts=mapOf(12L to DocumentDraft(12,"عنوان جدید","متن جدید"))))
+  compose.runOnIdle{vm.adaptDetail(false,setOf("documentEdit"))}
+  compose.onNodeWithText("متن جدید",substring=false).assertExists();assertEquals("متن جدید",vm.state.value.documentDrafts[12L]!!.content)
+ }
+ @Test @Config(qualifiers="w1280dp-h800dp-land-mdpi") fun internalHistoryPreviewDoesNotOverwriteActiveChatOrDraft(){
+  ready();state(fixture(Screen.HISTORY).copy(messages=listOf(ChatMessage("assistant","گفتگوی فعال")),conversationId=99,draft="پیش‌نویس محفوظ"))
+  stub("""{"ok":true,"data":{"conversation":{"title":"پیش‌نمایش"},"messages":[{"role":"assistant","content":"متن تاریخچه"}]}}""")
+  compose.runOnIdle{vm.previewConversation(1)};compose.waitUntil(10000){!vm.state.value.posting}
+  assertEquals(99L,vm.state.value.conversationId);assertEquals("پیش‌نویس محفوظ",vm.state.value.draft);assertEquals("گفتگوی فعال",vm.state.value.messages.single().text);assertEquals("historyPreview",vm.state.value.pane!!.kind)
+ }
+ @Test fun internalRestoredValidSessionStartsInChatWithoutLoginGate(){
+  ready()
+  val user=JSONObject().put("id",42).put("full_name","کاربر ساختگی")
+  val store=object:SessionStore {
+   var value=JSONObject().put("token","mock-session").put("user",user)
+   override fun read()=value
+   override fun save(value:JSONObject){this.value=value}
+   override fun clear(){value=JSONObject();authority=""}
+   override var authority="";override var dark=false;override var reminderMigrationDone=true;override var reminderNotice=false
+  }
+  val http=okhttp3.OkHttpClient.Builder().addInterceptor{chain->
+   val data=if(chain.request().url.encodedPath.endsWith("/auth/refresh"))JSONObject().put("token","mock-refreshed").put("user",user)else JSONObject().put("items",org.json.JSONArray())
+   okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("fixture").body(JSONObject().put("ok",true).put("data",data).toString().toResponseBody("application/json".toMediaType())).build()
+  }.build()
+  val model=compose.runOnIdle{AppViewModel(compose.activity.application,androidx.lifecycle.SavedStateHandle(mapOf("session_epoch" to 3)),ApiClient(http=http),store)}
+  val holder=androidx.lifecycle.ViewModelStore();val provider=ViewModelProvider(holder,object:ViewModelProvider.Factory {@Suppress("UNCHECKED_CAST") override fun <T:androidx.lifecycle.ViewModel> create(modelClass:Class<T>):T=model as T});provider[AppViewModel::class.java]
+  try{compose.waitUntil(10000){org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();model.state.value.initialized&&model.api.token=="mock-refreshed"};assertEquals(Screen.CHAT,model.state.value.screen);assertTrue(model.state.value.entryComplete);assertTrue(model.state.value.authenticated);assertEquals(3,model.sessionVersion)}finally{compose.runOnIdle{holder.clear()}}
+ }
+ @Test fun internalMigrationNoticeIsAcknowledgedPersistently(){
+  ready();SecureSession(compose.activity).reminderMigrationDone=true;SecureSession(compose.activity).reminderNotice=true
+  state(fixture(Screen.DEADLINES).copy(reminderNotice=true));compose.onNodeWithText("متوجه شدم").performClick();assertFalse(vm.state.value.reminderNotice);compose.waitUntil(10000){!SecureSession(compose.activity).reminderNotice}
+ }
+
+ @Test fun internalEmptySuccessfulResponseKeepsRetryPayloadForReview(){
+  ready();state(fixture(Screen.CHAT).copy(messages=emptyList(),draft="پیام آزمایشی",streaming=false));stub("""{"ok":true,"data":{}}""")
+  compose.runOnIdle{vm.sendChat()};compose.waitUntil(10000){!vm.state.value.posting}
+  assertEquals(ChatStatus.UNKNOWN,vm.state.value.chatStatus);assertNotNull(vm.state.value.failedChat);assertEquals(1,vm.state.value.messages.size)
+ }
+ @Test fun internalDifferentDocumentDraftsDoNotOverwriteEachOther(){ready();compose.runOnIdle{vm.updateDocumentDraft(11,"یک","متن یک");vm.updateDocumentDraft(12,"دو","متن دو");vm.discardDocumentDraft(12)};assertEquals("متن یک",vm.state.value.documentDrafts[11L]!!.content);assertFalse(vm.state.value.documentDrafts.containsKey(12L))}
+
+ @Test fun internalChangingCalculatorInputInvalidatesOldResult(){
+  ready();state(fixture(Screen.CALCULATORS).copy(result=JSONObject().put("total_initial_cost_toman",0)))
+  val field=Domain.calculators.first{it.id==vm.state.value.calculator}.fields.first{it.numeric&&it.options.isEmpty()}
+  compose.onNodeWithContentDescription(field.label).performScrollTo().performTextReplacement("1000000");assertNull(vm.state.value.result)
+ }
+ @Test fun internalDeadlineDateErrorReceivesFocus(){
+  ready();state(fixture(Screen.DEADLINES).copy(dialog=AppDialog("deadline","ثبت مهلت جدید")))
+  compose.onNodeWithContentDescription("عنوان مهلت").performTextInput("مهلت آزمایشی")
+  compose.onAllNodesWithText("ثبت مهلت",substring=false).onLast().performScrollTo().performClick();compose.waitForIdle()
+  assertEquals(listOf("date"),vm.state.value.fieldErrors.keys.toList());compose.onNodeWithText("انتخاب تاریخ پایان مهلت").assertIsFocused()
+ }
+ @Test fun internalScannerInputAndConsentHaveSeparateAccessibleErrors(){
+  ready();state(fixture(Screen.SCANNER));compose.onNodeWithText("تحلیل برگه",substring=false).performScrollTo().performClick();compose.waitForIdle()
+  assertEquals(listOf("text","consent"),vm.state.value.fieldErrors.keys.toList());compose.onNodeWithContentDescription("یا متن برگه را وارد کنید").assertIsFocused()
+  compose.onNodeWithContentDescription("یا متن برگه را وارد کنید").performTextInput("متن آزمایشی سند");compose.onNodeWithText("تحلیل برگه",substring=false).performScrollTo().performClick();compose.waitForIdle()
+  assertEquals(listOf("consent"),vm.state.value.fieldErrors.keys.toList());compose.onNodeWithText("مشخصات حساس را بررسی کرده‌ام و با ارسال برگه برای تحلیل موافقم.").assertIsFocused()
+ }
+
+ @Test fun internalProfileRefreshDoesNotEraseUnsavedTyping(){
+  ready();val f=fixture(Screen.ACCOUNT);state(f)
+  compose.onNodeWithContentDescription("نام و نام خانوادگی رسمی").performScrollTo().performTextReplacement("ویرایش محفوظ")
+  state(f.copy(user=JSONObject(f.user.toString()).put("full_name","متن سرور")))
+  compose.onNodeWithContentDescription("نام و نام خانوادگی رسمی").assertTextContains("ویرایش محفوظ")
+ }
+ @Test fun internalLateCheckoutResponseCannotRestorePaymentAfterExpiry(){
+  ready();state(fixture(Screen.PLANS));val entered=java.util.concurrent.CountDownLatch(1);val release=java.util.concurrent.CountDownLatch(1)
+  val client=okhttp3.OkHttpClient.Builder().addInterceptor{chain->
+   if(chain.request().url.encodedPath.endsWith("/billing/checkout")){entered.countDown();release.await(10,java.util.concurrent.TimeUnit.SECONDS)}
+   okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("fixture").body("""{"ok":true,"data":{"authority":"mock-only-authority","gateway_url":"https://example.invalid/mock-only"}}""".toResponseBody("application/json".toMediaType())).build()
+  }.build()
+  ApiClient::class.java.getDeclaredField("http").apply{isAccessible=true}.set(vm.api,client)
+  try {
+   compose.runOnIdle{vm.checkout(1,"")};compose.waitUntil(10000){entered.count==0L}
+   compose.runOnIdle{vm.downloadUnauthorized(vm.api.token,vm.sessionVersion)};compose.waitUntil(10000){!vm.state.value.authenticated}
+  }finally{release.countDown()}
+  compose.waitUntil(10000){!vm.state.value.posting};assertFalse(vm.pendingPayment);assertFalse(vm.state.value.authenticated)
+ }
+
+ @Test fun finalFourAddedCalculatorsRenderAndAgreementIsConditional(){
+  ready();listOf("expert_fee","arbitration_fee","notary_tariff","office_services_fee").forEach{id->state(fixture(Screen.CALCULATORS).copy(calculator=id));compose.onAllNodesWithText(Domain.calculators.first{it.id==id}.title,substring=false).onFirst().assertExists();val first=Domain.calculators.first{it.id==id}.fields.first();if(first.multiple)compose.onNodeWithText(first.label).assertExists()else compose.onNodeWithContentDescription(first.label).assertExists()}
+  state(fixture(Screen.CALCULATORS).copy(calculator="arbitration_fee"));compose.onNodeWithContentDescription("حق‌الزحمه توافقی داور (تومان)").assertDoesNotExist()
+  compose.onNodeWithContentDescription("مبنای حق‌الزحمه").performScrollTo().performClick();compose.onNodeWithText("مبلغ توافقی طرفین").performClick();compose.onNodeWithContentDescription("حق‌الزحمه توافقی داور (تومان)").assertExists()
+ }
+ @Test fun finalOfficeAllowsMultipleSelectionsAndRejectsNoSelection(){
+  ready();state(fixture(Screen.CALCULATORS).copy(calculator="office_services_fee"))
+  compose.onNodeWithText("ثبت و ارسال اظهارنامه",substring=false).performScrollTo().performClick()
+  compose.onNodeWithText("محاسبه و نمایش نتیجه").performScrollTo().performClick();compose.waitForIdle();assertTrue(vm.state.value.fieldErrors.containsKey("services"))
+  compose.onNodeWithText("گواهی عدم سوءپیشینه",substring=false).performScrollTo().performClick();compose.onNodeWithText("ثبت دادخواست و شکواییه",substring=false).performClick();assertFalse(vm.state.value.fieldErrors.containsKey("services"))
  }
 }

@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-06",
+  "source": "User-supplied images",
+  "brand_mark_processing": "Removed baked-in grey checkerboard by color/silhouette matte; original gold artwork preserved; actual RGBA alpha added.",
+  "launcher_processing": "User-supplied background artwork scaled; adaptive launcher/round icon with safe inset and monochrome layer. App minimum SDK 29 requires no pre-26 legacy bitmap fallback.",
+  "assets": [
+    {
+      "path": "app/src/main/res/drawable-nodpi/brand_mark.png",
+      "sha256": "bd809e9f25f10d33bfb70eb04b3a9b2e3095dcc3421cf5f48da597a0794f0321",
+      "mode": "RGBA"
+    },
+    {
+      "path": "app/src/main/res/drawable-nodpi/app_icon_art.png",
+      "sha256": "8aa9ecd4d7d382e41f919dd13c96f75de7c61d1ef5b8a279a7c1c710675dfca9",
+      "mode": "RGB"
+    }
+  ]
+}
