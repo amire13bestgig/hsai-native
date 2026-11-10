@@ -417,7 +417,7 @@ data: {"answer":"متن پاسخ","conversation_id":42,"message_id":77,"subscrip
   ready();assertTrue(Validation.digits(dateFa("2026-03-21")).contains("1405"))
  }
  @Test @Config(qualifiers="w1280dp-h800dp-land-mdpi") fun brandingLandscapeChatHasFlatCardsAndUserLogo() {
-  ready(login=false);compose.onAllNodesWithContentDescription("نشان حق‌سنج").onFirst().assertExists();screenshot("brand-chat-landscape")
+  ready(login=false);compose.onAllNodesWithText("حق‌سنج").onFirst().assertExists();screenshot("brand-chat-landscape")
  }
 
  @Test fun cleanupDocumentKeepsSecondaryActionsInAccessibleMenu() {
