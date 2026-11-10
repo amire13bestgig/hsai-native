@@ -44,7 +44,7 @@ import org.json.JSONObject
 @Composable fun HistoryDetail(d:AppDialog,s:AppUiState,vm:AppViewModel,modifier:Modifier) {
  val messages=remember(d.data){d.data.objects("messages").filter{it.str("role") in setOf("user","assistant")}.map{if(it.str("role")=="assistant")ApiContract.chatMessage(it)else ChatMessage("user",it.str("content"))}}
  Column(modifier,verticalArrangement=Arrangement.spacedBy(12.dp)) {
-  Button(onClick={vm.openConversation(d.data.optLong("id"))},enabled=!s.posting){Text("ادامه گفتگو")}
+  Button(shape=SiteShape.Xl,onClick={vm.openConversation(d.data.optLong("id"))},enabled=!s.posting){Text("ادامه گفتگو")}
   Text("پیش‌نمایش فقط‌خواندنی است؛ برای پاسخ، ادامه گفتگو را انتخاب کنید.",style=MaterialTheme.typography.bodySmall)
   LazyColumn(Modifier.weight(1f).fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){itemsIndexed(messages){_,message->MessageCard(message,true,vm)}}
  }
@@ -61,9 +61,9 @@ import org.json.JSONObject
   Text("پیش‌نویس ویرایش با بستن فرایند اپ باقی نمی‌ماند؛ تغییرات مهم را ذخیره کنید.",style=MaterialTheme.typography.bodySmall)
   Action("ذخیره تغییرات",s.posting){vm.saveDocument(id,title,content)}
  }else{
-DocumentPaper(d.data.str("content","متن سند موجود نیست."));Text("این متن پیش‌نویس است؛ قبل از ثبت رسمی اطلاعات را بررسی کنید.",style=MaterialTheme.typography.bodySmall);FlowRow{if(d.data.optLong("id")>0)OutlinedButton(onClick={vm.download(d.data.optLong("id"))}){Text("دریافت Word")};TextButton(onClick={vm.copy(d.data.str("content"))}){Text("کپی متن")}}
+DocumentPaper(d.data.str("content","متن سند موجود نیست."));Text("این متن پیش‌نویس است؛ قبل از ثبت رسمی اطلاعات را بررسی کنید.",style=MaterialTheme.typography.bodySmall);FlowRow{if(d.data.optLong("id")>0)SoftButton(onClick={vm.download(d.data.optLong("id"))}){Text("دریافت Word")};TextButton(onClick={vm.copy(d.data.str("content"))}){Text("کپی متن")}}
  }
 }
 @Composable fun ColumnScope.ArticleDetailContent(d:AppDialog,vm:AppViewModel) {
-SelectionContainer{Text(d.data.str("official_text"))};if(d.data.str("plain_explanation").isNotBlank())Text(d.data.str("plain_explanation"));if(d.data.has("practical_tips"))DataResult(JSONObject().put("practical_tips",d.data.opt("practical_tips")));TextButton(onClick={vm.copy(d.data.str("official_text"))}){Text("کپی متن قانون")};OutlinedButton(onClick={vm.askAboutArticle(d.data)}){Text("پرسش درباره این ماده")}
+SelectionContainer{Text(d.data.str("official_text"))};if(d.data.str("plain_explanation").isNotBlank())Text(d.data.str("plain_explanation"));if(d.data.has("practical_tips"))DataResult(JSONObject().put("practical_tips",d.data.opt("practical_tips")));TextButton(onClick={vm.copy(d.data.str("official_text"))}){Text("کپی متن قانون")};SoftButton(onClick={vm.askAboutArticle(d.data)}){Text("پرسش درباره این ماده")}
 }

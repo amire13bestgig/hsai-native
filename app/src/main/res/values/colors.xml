@@ -1,0 +1,6 @@
+<resources>
+ <!-- رنگ‌های برند، مطابق tailwind.config.js سایت -->
+ <color name="brand_navy_950">#07141E</color>
+ <color name="brand_navy_900">#0D2130</color>
+ <color name="brand_brass_400">#CE9F58</color>
+</resources>

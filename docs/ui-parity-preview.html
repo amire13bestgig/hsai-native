@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>برابری بصری اپ با سایت — حق‌سنج 2.0.1-native</title>
+<style>
+  :root{
+    --navy950:#07141E; --navy900:#0D2130; --navy800:#163144; --navy600:#275676;
+    --brass300:#DCBE86; --brass400:#CE9F58; --brass500:#C38839; --brass700:#955628; --brass900:#633A22;
+    --bg:#F4F2EC; --card:#FBF9F5; --card2:#F7F4EE; --well:#EFECE4; --border:#E4E0D6; --hairline:#EDEAE2;
+    --ink:#0F172A; --muted:#64748B; --amber50:#FFFBEB;
+    --bg-dark:#0B1B28; --card-dark:#12293A; --card2-dark:#0F2334; --well-dark:#0A1825; --border-dark:rgba(255,255,255,.09);
+    --r12:12px; --r16:16px; --r24:24px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,"Segoe UI",sans-serif;line-height:1.85}
+  header{background:linear-gradient(90deg,var(--navy900),var(--navy950));color:#fff;padding:26px 20px;border-bottom:1px solid rgba(206,159,88,.4);position:relative;overflow:hidden}
+  header::before{content:"";position:absolute;inset:0;background-image:linear-gradient(to right,rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,.04) 1px,transparent 1px);background-size:38px 38px}
+  header h1{margin:0 0 8px;font-size:26px;font-weight:900;position:relative}
+  header p{margin:0;color:#CBD5E1;font-size:14px;position:relative}
+  .wrap{max-width:1152px;margin:0 auto;padding:24px 20px 60px}
+  h2{font-size:20px;font-weight:800;margin:34px 0 12px}
+  h3{font-size:14px;font-weight:800;color:var(--brass700);margin:18px 0 8px}
+  .grid{display:grid;gap:12px}
+  .swatches{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+  .sw{border-radius:var(--r12);overflow:hidden;border:1px solid var(--border);background:var(--card);font-size:11px}
+  .sw i{display:block;height:44px}
+  .sw span{display:block;padding:5px 7px;font-weight:800}
+  .sw code{display:block;padding:0 7px 6px;color:var(--muted);font-size:10px;direction:ltr;text-align:left}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r24);padding:18px;box-shadow:0 8px 20px -14px rgba(23,42,59,.35)}
+  .card::after{content:""}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{border:0;border-radius:var(--r12);padding:14px 18px;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer}
+  .btn-primary{background:var(--navy950);color:var(--brass300);border:1px solid rgba(255,255,255,.08)}
+  .btn-brass{background:linear-gradient(180deg,#E0BC7F,#C38839 52%,#A86F2A);color:#2A1C07;border:1px solid rgba(255,255,255,.35)}
+  .btn-ghost{background:transparent;color:var(--navy950);border:1px solid var(--border)}
+  .field{background:var(--well);border:1px solid transparent;border-radius:var(--r12);padding:13px 14px;font-family:inherit;font-size:14px;width:100%;color:var(--navy950);box-shadow:inset 3px 3px 7px rgba(23,42,59,.10),inset -3px -3px 7px rgba(255,255,255,.95)}
+  .field:focus{outline:none;box-shadow:inset 3px 3px 7px rgba(23,42,59,.10),0 0 0 2px rgba(195,136,57,.55)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:9999px;font-size:11px;font-weight:800;background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--border)}
+  .chip.active{background:var(--brass300);color:var(--navy950);border-color:var(--brass300)}
+  .chat{display:flex;flex-direction:column;gap:14px}
+  .bub-max{max-width:90%}
+  .bub{max-width:90%;padding:16px;font-size:14px}
+  .bub-user{align-self:flex-start;background:linear-gradient(180deg,#1B3852,#0C1F2E);color:#F8FAFC;border:1px solid rgba(255,255,255,.1);border-radius:22px 22px 9px 22px;box-shadow:0 16px 30px -20px rgba(7,20,30,.8)}
+  .bub-ai{align-self:flex-end;background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:22px 22px 22px 9px}
+  .who{font-size:11px;font-weight:800;color:var(--brass700);margin-bottom:6px}
+  .bub-user .who{color:var(--brass300)}
+  .paper{background:#FFFEF9;border:1px solid rgba(206,159,88,.35);border-radius:10px;padding:20px;color:var(--navy950);font-size:14px;
+    background-image:repeating-linear-gradient(to bottom,rgba(206,159,88,.16) 0 1px,transparent 1px 34px)}
+  .dark{background:var(--bg-dark);color:#F1F5F9;border-radius:var(--r24);padding:18px;margin-top:10px}
+  .dark .card{background:var(--card-dark);border-color:var(--border-dark);box-shadow:none}
+  .dark .bub-ai{background:linear-gradient(180deg,var(--card-dark),var(--card2-dark));border-color:var(--border-dark);color:#F1F5F9}
+  .dark .field{background:var(--well-dark);color:#E8EEF5;box-shadow:none;border-color:rgba(255,255,255,.16)}
+  .dark .btn-primary{background:var(--brass400);color:var(--navy950)}
+  .dark .chip{background:linear-gradient(180deg,var(--card-dark),var(--card2-dark));border-color:var(--border-dark);color:#E2E8F0}
+  .note{font-size:12px;color:var(--muted);margin-top:8px}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:720px){.twocol{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:var(--card);border-radius:var(--r16);overflow:hidden}
+  th,td{padding:9px 11px;text-align:right;border-bottom:1px solid var(--hairline)}
+  th{background:var(--well);font-weight:800;font-size:12px}
+  code{font-family:ui-monospace,Menlo,monospace}
+</style>
+</head>
+<body>
+<header>
+  <h1>برابری بصری اپ بومی با سایت حق‌سنج</h1>
+  <p>نسخهٔ 2.0.1-native — همهٔ رنگ‌ها، گردی‌ها و نسبت خط‌ها همان مقادیر tailwind.config.js و src/index.css سایت‌اند (بازبینی: verify/tokens.py → ۳۹/۳۹)</p>
+</header>
+<div class="wrap">
+
+  <h2>۱) پالت navy — از <code>tailwind.config.js</code></h2>
+  <div class="grid swatches">
+    <div class="sw"><i style="background:#F0F5F8"></i><span>navy-50</span><code>#F0F5F8</code></div>
+    <div class="sw"><i style="background:#D9E6EE"></i><span>navy-100</span><code>#D9E6EE</code></div>
+    <div class="sw"><i style="background:#B6CFDF"></i><span>navy-200</span><code>#B6CFDF</code></div>
+    <div class="sw"><i style="background:#85AFC8"></i><span>navy-300</span><code>#85AFC8</code></div>
+    <div class="sw"><i style="background:#5088AB"></i><span>navy-400</span><code>#5088AB</code></div>
+    <div class="sw"><i style="background:#336C8F"></i><span>navy-500</span><code>#336C8F</code></div>
+    <div class="sw"><i style="background:#275676"></i><span>navy-600</span><code>#275676</code></div>
+    <div class="sw"><i style="background:#214661"></i><span>navy-700</span><code>#214661</code></div>
+    <div class="sw"><i style="background:#163144"></i><span>navy-800</span><code>#163144</code></div>
+    <div class="sw"><i style="background:#0D2130"></i><span>navy-900</span><code>#0D2130</code></div>
+    <div class="sw"><i style="background:#07141E"></i><span>navy-950</span><code>#07141E</code></div>
+  </div>
+
+  <h2>۲) پالت brass</h2>
+  <div class="grid swatches">
+    <div class="sw"><i style="background:#FBF8F1"></i><span>brass-50</span><code>#FBF8F1</code></div>
+    <div class="sw"><i style="background:#F5EEDC"></i><span>brass-100</span><code>#F5EEDC</code></div>
+    <div class="sw"><i style="background:#EAD9B5"></i><span>brass-200</span><code>#EAD9B5</code></div>
+    <div class="sw"><i style="background:#DCBE86"></i><span>brass-300</span><code>#DCBE86</code></div>
+    <div class="sw"><i style="background:#CE9F58"></i><span>brass-400</span><code>#CE9F58</code></div>
+    <div class="sw"><i style="background:#C38839"></i><span>brass-500</span><code>#C38839</code></div>
+    <div class="sw"><i style="background:#B36F2E"></i><span>brass-600</span><code>#B36F2E</code></div>
+    <div class="sw"><i style="background:#955628"></i><span>brass-700</span><code>#955628</code></div>
+    <div class="sw"><i style="background:#794526"></i><span>brass-800</span><code>#794526</code></div>
+    <div class="sw"><i style="background:#633A22"></i><span>brass-900</span><code>#633A22</code></div>
+  </div>
+
+  <h2>۳) سطوح و کامپوننت‌ها (پوستهٔ روشن)</h2>
+  <div class="twocol">
+    <div class="card">
+      <div style="font-weight:900;font-size:16px;margin-bottom:8px">کارت خمیری — <code>.soft-card</code></div>
+      <p style="margin:0;font-size:14px;color:var(--muted)">سطح <code>#FBF9F5</code> + هایرلاین <code>#E4E0D6</code> + گردی <code>24dp</code> + هایلایت ۱۶۸درجه.</p>
+      <div class="row" style="margin-top:14px"><span class="chip">چیپ</span><span class="chip active">چیپ فعال</span></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:900;font-size:16px;margin-bottom:10px">دکمه و ورودی</div>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn btn-primary">دکمهٔ اصلی سایت</button>
+        <button class="btn btn-brass">برنجی</button>
+        <button class="btn btn-ghost">خنثی</button>
+      </div>
+      <input class="field" placeholder="چاه ورودی — .soft-well با حلقهٔ فوکوس برنجی">
+    </div>
+  </div>
+
+  <h3>حباب‌های گفتگو</h3>
+  <div class="card chat">
+    <div class="bub bub-user"><div class="who">شما</div>چکم برگشت خورده و صاحب چک می‌گوید پولی ندارد؛ چه اقدامی کنم؟</div>
+    <div class="bub bub-ai"><div class="who">حق‌سنج</div>برای مطالبهٔ وجه چک، ابتدا گواهی عدم پرداخت بگیرید؛ سپس اظهارنامه یا دادخواست… (در اپ: <code>soft-bubble-ai</code>)</div>
+  </div>
+  <p class="note">کاربر: گرادیان <code>#1B3852 → #0C1F2E</code> و گوشهٔ ۹dp پایین‌شروع؛ دستیار: گرادیان card → card2 و گوشهٔ ۹dp پایین‌پایان.</p>
+
+  <h3>برگهٔ کاغذی قضایی — <code>.judicial-paper</code></h3>
+  <div class="paper">به نام خداوند بخشندهٔ مهربان — ریاست محترم دادگاه عمومی حقوقی… (خط‌های برنجی هر ۳۴dp، عیناً مثل سایت)</div>
+
+  <h2>۴) همان لایه در پوستهٔ تیره — <code>.hsai-dark</code></h2>
+  <div class="dark">
+    <div class="row" style="margin-bottom:12px"><button class="btn btn-primary">دکمه در تیره = برنجی</button><span class="chip">چیپ تیره</span></div>
+    <div class="card" style="margin-bottom:12px">کارت تیره: <code>#12293A</code> با هایرلاین <code>rgba(255,255,255,.09)</code></div>
+    <input class="field" placeholder="ورودی روی سطح تیره">
+    <div class="chat" style="margin-top:12px">
+      <div class="bub bub-ai"><div class="who">حق‌سنج</div>سطح کارت روی بوم <code>#0B1B28</code> — همان توکن‌های سایت.</div>
+    </div>
+  </div>
+
+  <h2>۵) نگاشت کلاس سایت به Compose (خلاصه)</h2>
+  <table>
+    <tr><th>سایت</th><th>اپ</th><th>مقدار</th></tr>
+    <tr><td><code>.soft-card</code></td><td><code>GlassCard</code></td><td>24dp / #FBF9F5</td></tr>
+    <tr><td><code>.soft-well</code></td><td>ورودی <code>Field</code></td><td>#EFECE4 + رینگ #C38839</td></tr>
+    <tr><td><code>.soft-bubble-user</code></td><td><code>SiteShape.bubbleUser()</code></td><td>22/22/9/22dp</td></tr>
+    <tr><td><code>.soft-bubble-ai</code></td><td><code>SiteShape.bubbleAi()</code></td><td>22/22/22/9dp</td></tr>
+    <tr><td><code>bg-navy-950 text-brass-300</code></td><td><code>Action()</code></td><td>#07141E / #DCBE86</td></tr>
+    <tr><td><code>rounded-xl/2xl/3xl</code></td><td><code>SiteShape.Xl/Xxl/Xxxl</code></td><td>12/16/24dp</td></tr>
+    <tr><td>بدنه با line-height ۱.۸۵</td><td><code>bodyMedium</code></td><td>14sp / 26sp</td></tr>
+  </table>
+
+  <p class="note">این فایل صرفاً پیش‌نمایش توکن‌هاست (HTML مستقل، بدون منبع بیرونی). رندر واقعی اپ با Compose انجام می‌شود؛
+  بازبینی ماشینی برابری: <code>python3 verify/tokens.py</code> و <code>bash verify/typecheck.sh</code>.</p>
+</div>
+</body>
+</html>

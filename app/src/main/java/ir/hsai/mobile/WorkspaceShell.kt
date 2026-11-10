@@ -25,7 +25,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
  else -> WorkspaceLayout.COMPACT
 }
 
-@Composable fun NativeApp(vm:AppViewModel,onImage:()->Unit,onCamera:()->Unit,onEditImage:()->Unit,snackbar:SnackbarHostState) {
+@Composable fun NativeApp(vm:AppViewModel,onImage:()->Unit,onCamera:()->Unit,onDictate:()->Unit,onEditImage:()->Unit,snackbar:SnackbarHostState) {
  val s by vm.state.collectAsStateWithLifecycle()
  CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
   HsaiTheme(if(s.entryComplete)s.dark else false) {
@@ -53,12 +53,19 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
        if(layout!=WorkspaceLayout.COMPACT)WorkspaceMenu(s,vm,select,layout==WorkspaceLayout.RAIL)
        Scaffold(modifier=Modifier.weight(1f),containerColor=MaterialTheme.colorScheme.background,
         snackbarHost={SnackbarHost(snackbar)},topBar={
+         // UI-parity: نوار بالای سایت یک «کلای‌بار» با هایرلاین پایین است، نه سرفیس تخت بدون مرز.
+         // UI-parity: نوار بالای سایت `.soft-clay-bar` است (گرادیان + حاشیهٔ سفید + هایلایت ۱٫۵px)،
+         // نه سرفیس یک‌رنگ M3؛ حالا همان لایه با همان گرادیان ساخته می‌شود.
+         Column(Modifier.background(clayBarBrush())) {
+         Box(Modifier.fillMaxWidth().height(1.5.dp).background(clayBarEdge()))
          TopAppBar(title={Text(if(s.screen==Screen.CHAT&&s.conversationId==null)"گفتگوی حقوقی جدید"else s.screen.title,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)},
-          navigationIcon={if(layout==WorkspaceLayout.COMPACT)IconButton(onClick={scope.launch{drawer.open()}}){Icon(NativeIcons.Menu,"منوی اصلی")}},
+          navigationIcon={if(layout==WorkspaceLayout.COMPACT)IconButton(onClick={scope.launch{drawer.open()}},modifier=Modifier.padding(start=6.dp).size(40.dp).background(Soft.well(),SiteShape.Xl)){Icon(NativeIcons.Menu,"منوی اصلی",Modifier.size(20.dp))}},
           actions={
-           IconButton(onClick={vm.navigate(Screen.ACCOUNT)}){Icon(NativeIcons.PersonOutline,if(s.authenticated)"حساب کاربری"else "ورود یا عضویت")}
-           IconButton(onClick=vm::toggleTheme){Icon(if(s.dark)NativeIcons.LightMode else NativeIcons.DarkMode,"تغییر حالت روشن و تیره")}
-          },colors=TopAppBarDefaults.topAppBarColors(containerColor=MaterialTheme.colorScheme.surface))
+           IconButton(onClick={vm.navigate(Screen.ACCOUNT)},modifier=Modifier.size(40.dp).background(Soft.well(),SiteShape.Xl)){Icon(NativeIcons.PersonOutline,if(s.authenticated)"حساب کاربری"else "ورود یا عضویت",Modifier.size(20.dp))}
+           IconButton(onClick=vm::toggleTheme,modifier=Modifier.padding(horizontal=4.dp).size(40.dp).background(Soft.well(),SiteShape.Xl)){Icon(if(s.dark)NativeIcons.LightMode else NativeIcons.DarkMode,"تغییر حالت روشن و تیره",Modifier.size(20.dp))}
+          },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent,titleContentColor=Soft.ink(),actionIconContentColor=Soft.ink()))
+         Box(Modifier.fillMaxWidth().height(1.dp).background(Soft.hairline()))
+         }
         }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
          if(s.reminderNotice)Surface(color=MaterialTheme.colorScheme.secondaryContainer) {
@@ -70,7 +77,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
          if(!s.online)Surface(color=MaterialTheme.colorScheme.errorContainer){Column(Modifier.fillMaxWidth().padding(12.dp)){Text("اتصال برقرار نشد؛ اینترنت را بررسی و دوباره تلاش کنید.");TextButton(onClick={vm.checkConnection()},enabled=!s.checkingConnection){Text(if(s.checkingConnection)"در حال بررسی اتصال…"else "بررسی اتصال")}}}
          if(s.posting&&s.screen!=Screen.CHAT)LinearProgressIndicator(Modifier.fillMaxWidth())
          when(s.screen) {
-          Screen.CHAT->ChatScreen(s,vm,onImage,onCamera,onEditImage)
+          Screen.CHAT->ChatScreen(s,vm,onImage,onCamera,onDictate,onEditImage)
           Screen.ACCOUNT->AccountScreen(s,vm)
           Screen.HISTORY->HistoryScreen(s,vm)
           Screen.DOCUMENTS->DocumentScreen(s,vm)
@@ -98,19 +105,19 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
 @Composable private fun WorkspaceMenu(s:AppUiState,vm:AppViewModel,select:(Screen)->Unit,rail:Boolean) {
  Surface(Modifier.width(if(rail)88.dp else 288.dp).fillMaxHeight(),color=SiteNavy,contentColor=Color.White) {
   if(rail)Column(Modifier.statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)) {
-   BrandEmblem(Modifier.padding(vertical=12.dp))
+   BrandEmblem(44.dp,modifier=Modifier.padding(vertical=12.dp))
    IconButton(onClick=vm::newChat){Icon(NativeIcons.Add,"گفتگوی جدید",tint=SiteGold)}
    // FIX(nav): حساب کاربری در ریل کنارِ آیکونِ پروفایلِ نوار بالا تکرار می‌شد و دو دکمهٔ هم‌نام
    // یک مقصد واحد داشتند؛ نسخهٔ ریل فقط مقصدهای انحصاری خودش را نشان می‌دهد.
-   Screen.entries.filterNot{it==Screen.ACCOUNT}.forEach { screen->Surface(onClick={select(screen)},shape=RoundedCornerShape(12.dp),color=if(s.screen==screen)SiteGold.copy(alpha=.18f)else Color.Transparent) {
-    Icon(screen.symbol(),screen.title,Modifier.padding(16.dp).size(22.dp),tint=if(s.screen==screen)SiteGold else Color(0xFFCFD8E1))
+   Screen.entries.filterNot{it==Screen.ACCOUNT}.forEach { screen->Surface(onClick={select(screen)},shape=SiteShape.Xl,color=if(s.screen==screen)SiteGold.copy(alpha=.18f)else Color.Transparent) {
+    Icon(screen.symbol(),screen.title,Modifier.padding(16.dp).size(22.dp),tint=if(s.screen==screen)SiteGold else Palette.Slate300)
    }}
   } else Column(Modifier.statusBarsPadding().navigationBarsPadding()) {
    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-     BrandEmblem(Modifier.size(32.dp));Column{Text("حق‌سنج",fontWeight=FontWeight.Black);Text("مشاهده وب‌سایت اصلی",style=MaterialTheme.typography.labelSmall,color=SiteDesign.Brass300,modifier=Modifier.clickable{vm.openExternal("https://hsai.ir")})}
+     BrandEmblem(32.dp);Column{Text("حق‌سنج",fontWeight=FontWeight.Black);Text("مشاهده وب‌سایت اصلی",style=MaterialTheme.typography.labelSmall,color=SiteDesign.Brass300,modifier=Modifier.clickable{vm.openExternal("https://hsai.ir")})}
     }
-    Button(onClick={vm.newChat();select(Screen.CHAT)},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp),colors=ButtonDefaults.buttonColors(containerColor=SiteGold,contentColor=SiteNavy)) {Icon(NativeIcons.Add,null,Modifier.size(18.dp));Spacer(Modifier.width(6.dp));Text("گفتگوی جدید",fontWeight=FontWeight.Bold)}
+    Button(onClick={vm.newChat();select(Screen.CHAT)},modifier=Modifier.fillMaxWidth(),shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=SiteGold,contentColor=SiteNavy)) {Icon(NativeIcons.Add,null,Modifier.size(18.dp));Spacer(Modifier.width(6.dp));Text("گفتگوی جدید",fontWeight=FontWeight.Bold)}
     Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
      listOf(Screen.LAWS,Screen.CALCULATORS).forEach { screen->SidebarLink(screen.title,screen.symbol(),Modifier.weight(1f)){select(screen)} }
     }
@@ -121,11 +128,11 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
     tools.chunked(2).forEach { row->Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){row.forEach { screen->SidebarLink(screen.title,screen.symbol(),Modifier.weight(1f)){select(screen)} }} }
     SidebarLink("گفتگوهای من",NativeIcons.History,Modifier.fillMaxWidth()){select(Screen.HISTORY)}
     var query by rememberSaveable{mutableStateOf("")}
-    if(s.sidebarHistory.size>3)OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("جستجو در گفتگوهای اخیر…",style=MaterialTheme.typography.labelSmall)},textStyle=MaterialTheme.typography.bodySmall,shape=RoundedCornerShape(10.dp),colors=OutlinedTextFieldDefaults.colors(unfocusedTextColor=Color.White,focusedTextColor=Color.White,unfocusedBorderColor=Color.White.copy(alpha=.12f),focusedBorderColor=SiteGold,unfocusedContainerColor=Color.White.copy(alpha=.05f)))
+    if(s.sidebarHistory.size>3)OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("جستجو در گفتگوهای اخیر…",style=MaterialTheme.typography.labelSmall)},textStyle=MaterialTheme.typography.bodySmall,shape=SiteShape.Xl,colors=OutlinedTextFieldDefaults.colors(unfocusedTextColor=Color.White,focusedTextColor=Color.White,unfocusedBorderColor=Color.White.copy(alpha=.12f),focusedBorderColor=SiteGold,unfocusedContainerColor=Color.White.copy(alpha=.05f)))
     val history=s.sidebarHistory.filter{query.isBlank()||it.str("title").contains(query,ignoreCase=true)}
-    if(history.isEmpty())Text(if(query.isBlank())"گفتگوهای شما در این بخش نمایش داده می‌شوند."else "گفتگویی با این عبارت یافت نشد.",Modifier.padding(vertical=18.dp),style=MaterialTheme.typography.bodySmall,color=Color(0xFF94A3B8))
+    if(history.isEmpty())Text(if(query.isBlank())"گفتگوهای شما در این بخش نمایش داده می‌شوند."else "گفتگویی با این عبارت یافت نشد.",Modifier.padding(vertical=18.dp),style=MaterialTheme.typography.bodySmall,color=Palette.Slate400)
     history.forEach { conversation->
-     Surface(onClick={vm.openConversation(conversation.optLong("id"));select(Screen.CHAT)},enabled=!s.posting,shape=RoundedCornerShape(10.dp),color=if(s.conversationId==conversation.optLong("id"))Color.White.copy(alpha=.1f)else Color.Transparent,contentColor=Color(0xFFCBD5E1)) {
+     Surface(onClick={vm.openConversation(conversation.optLong("id"));select(Screen.CHAT)},enabled=!s.posting,shape=SiteShape.Xl,color=if(s.conversationId==conversation.optLong("id"))Color.White.copy(alpha=.1f)else Color.Transparent,contentColor=Palette.Slate300) {
       Row(Modifier.fillMaxWidth().heightIn(min=48.dp).padding(8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
        Icon(NativeIcons.ChatBubbleOutline,null,Modifier.size(16.dp));Text(conversation.str("title","گفتگوی حقوقی"),Modifier.weight(1f),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
       }
@@ -135,7 +142,32 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
    }
    HorizontalDivider(color=Color.White.copy(alpha=.1f))
    Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-    SidebarLink(s.subscription.str("plan_name","اشتراک و پرداخت‌ها"),NativeIcons.WorkspacePremium,Modifier.fillMaxWidth()){select(Screen.PLANS)}
+    // UI-parity: پایین سایدبار سایت سه چیز دارد که در اپ نبود: پلن با «روز باقی‌مانده»،
+    // سهمیهٔ رایگان ماهانه، و ماندهٔ «گفتگو / پیام / سند». همه از همان پاسخ‌های سرور.
+    Surface(onClick={select(Screen.PLANS)},modifier=Modifier.fillMaxWidth(),shape=SiteShape.Xl,color=SiteGold.copy(alpha=.15f),border=BorderStroke(1.dp,SiteGold.copy(alpha=.3f))) {
+     Row(Modifier.padding(horizontal=12.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+      Icon(NativeIcons.WorkspacePremium,null,Modifier.size(17.dp),tint=SiteGold)
+      Text(s.subscription.str("plan_name",if(s.authenticated)"تهیه یا تمدید اشتراک"else "ورود و تهیهٔ اشتراک"),Modifier.weight(1f),style=MaterialTheme.typography.labelLarge,color=SiteGold,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+      if(s.subscription.has("days_remaining"))Text(fa(s.subscription.optInt("days_remaining"))+" روز",style=MaterialTheme.typography.labelSmall,color=Palette.OkBright)
+     }
+    }
+    val freeQuota=s.freeQuota
+    if(s.subscription.length()==0&&freeQuota.optBoolean("enabled",false)&&freeQuota.has("remaining")) {
+     Row(Modifier.fillMaxWidth().padding(horizontal=2.dp),horizontalArrangement=Arrangement.SpaceBetween) {
+      Text("سهمیهٔ رایگان این ماه:",style=MaterialTheme.typography.labelSmall,color=Palette.Slate400)
+      Text(fa(freeQuota.optInt("remaining"))+" از "+fa(freeQuota.optInt("limit"))+" پیام",style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold,color=Palette.OkBright)
+     }
+    }
+    if(s.subscription.has("messages_remaining")) {
+     Row(Modifier.fillMaxWidth().padding(horizontal=2.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+      Text("مانده:",style=MaterialTheme.typography.labelSmall,color=Palette.Slate400)
+      listOf("consultations_remaining" to "گفتگو","messages_remaining" to "پیام","documents_remaining" to "سند").forEachIndexed { index,(key,label)->
+       val value=s.subscription.optInt(key,-1)
+       if(index>0)Text("•",style=MaterialTheme.typography.labelSmall,color=Palette.Slate500)
+       Text((if(value<0)"∞" else fa(value))+" "+label,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold,color=Palette.Slate200)
+      }
+     }
+    }
     SidebarLink(if(s.authenticated)"حساب کاربری، رمز عبور و فاکتورها"else "ورود / عضویت",NativeIcons.PersonOutline,Modifier.fillMaxWidth()){select(Screen.ACCOUNT)}
     Text(s.user.str("full_name",if(s.authenticated)"حساب حق‌سنج"else "کاربر مهمان"),style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
    }
@@ -143,7 +175,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
  }
 }
 @Composable private fun SidebarLink(title:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier,onClick:()->Unit) {
- Surface(onClick=onClick,modifier=modifier,shape=RoundedCornerShape(10.dp),color=Color.White.copy(alpha=.05f),contentColor=Color(0xFFDFE7EF),border=BorderStroke(1.dp,Color.White.copy(alpha=.1f))) {
+ Surface(onClick=onClick,modifier=modifier,shape=SiteShape.Xl,color=Color.White.copy(alpha=.05f),contentColor=Palette.Slate200,border=BorderStroke(1.dp,Color.White.copy(alpha=.1f))) {
   Row(Modifier.heightIn(min=48.dp).padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)) {
    Icon(icon,null,Modifier.size(16.dp),tint=SiteDesign.Brass300);Text(title,Modifier.weight(1f),style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.SemiBold)
   }

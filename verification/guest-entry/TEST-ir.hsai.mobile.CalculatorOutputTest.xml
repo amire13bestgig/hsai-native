@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="ir.hsai.mobile.CalculatorOutputTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-05T15:40:15" hostname="e2b.local" time="0.018">
-  <properties/>
-  <testcase name="independentArithmeticForNineCalculators" classname="ir.hsai.mobile.CalculatorOutputTest" time="0.012"/>
-  <testcase name="delayDamageUsesUnroundedCpiRatio" classname="ir.hsai.mobile.CalculatorOutputTest" time="0.006"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

@@ -41,12 +41,11 @@ import org.json.JSONObject
    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(20.dp)) {
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-      BrandEmblem()
-      Column{Text("حق‌سنج",color=Color.White,fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium);Text("اول حقت را بسنج، بعد قدم بردار",color=SiteGold,style=MaterialTheme.typography.labelSmall)}
+      BrandLockup("lg")
      }
-     TextButton(onClick=vm::browseAsGuest,enabled=!s.posting,shape=RoundedCornerShape(12.dp),colors=ButtonDefaults.textButtonColors(containerColor=Color.White.copy(alpha=.1f)),contentPadding=PaddingValues(8.dp)) {Text("بازگشت به چت",color=Color(0xFFDDE4ED),style=MaterialTheme.typography.labelSmall)}
+     TextButton(onClick=vm::browseAsGuest,enabled=!s.posting,shape=RoundedCornerShape(12.dp),colors=ButtonDefaults.textButtonColors(containerColor=Color.White.copy(alpha=.1f)),contentPadding=PaddingValues(8.dp)) {Text("بازگشت به چت",color=Palette.Slate300,style=MaterialTheme.typography.labelSmall)}
     }
-    Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=Color.White,border=BorderStroke(1.dp,Color(0xFFDDE4ED))) {
+    Surface(Modifier.fillMaxWidth(),shape=SiteShape.Card,color=Soft.CardLight,border=BorderStroke(1.dp,Soft.BorderLight),shadowElevation=4.dp) {
      Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
       Text(if(mode=="register")"ایجاد حساب کاربری حق‌سنج"else "ورود به میز کار حق‌سنج",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Black)
       if(!s.pendingGuestMessage)Text(if(s.config.optBoolean("free_trial_enabled",false))"با ورود یا عضویت، هدیه مشاوره رایگان شما بلافاصله فعال می‌شود."else "برای دسترسی به میز کار حقوقی و اسناد قضایی خود وارد شوید.",color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.bodySmall)
@@ -56,15 +55,15 @@ import org.json.JSONObject
       if(s.authenticated) {
        Text("خوش آمدید، ${s.user.str("full_name","دوست عزیز")}",fontWeight=FontWeight.Medium)
        Text("نشست امن شما روی این دستگاه فعال است.",style=MaterialTheme.typography.bodySmall)
-       Button(onClick=vm::enterWorkspace,enabled=s.initialized&&!s.posting,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),shape=RoundedCornerShape(16.dp)){Text("ادامه به میز کار")}
-       OutlinedButton(onClick={vm.logout()},enabled=!s.posting,modifier=Modifier.fillMaxWidth()){Text("ورود با حساب دیگر")}
+       Button(onClick=vm::enterWorkspace,enabled=s.initialized&&!s.posting,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),shape=SiteShape.Xl){Text("ادامه به میز کار")}
+       SoftButton(onClick={vm.logout()},enabled=!s.posting,modifier=Modifier.fillMaxWidth()){Text("ورود با حساب دیگر")}
       } else {
        if(s.config.optBoolean("sms_otp_enabled")) {
-        Surface(color=Color(0xFFF1F5F9),shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Color(0xFFE2E8F0))) {
+        Surface(color=Soft.well(),shape=SiteShape.Xxl,border=BorderStroke(1.dp,Soft.border())) {
          Row(Modifier.padding(4.dp)) {
           listOf("otp" to "ورود پیامکی","login" to "ایمیل و رمز عبور").forEach { (key,label)->
            val selected=if(key=="otp")mode=="otp"else mode!="otp"
-           TextButton(onClick={mode=key;vm.clearFormErrors()},enabled=!s.posting,modifier=Modifier.weight(1f),shape=RoundedCornerShape(12.dp),colors=ButtonDefaults.textButtonColors(containerColor=if(selected)SiteNavy else Color.Transparent,contentColor=if(selected)SiteDesign.Brass300 else Color(0xFF475569))) {Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)}
+           TextButton(onClick={mode=key;vm.clearFormErrors()},enabled=!s.posting,modifier=Modifier.weight(1f),shape=RoundedCornerShape(12.dp),colors=ButtonDefaults.textButtonColors(containerColor=if(selected)SiteNavy else Color.Transparent,contentColor=if(selected)Palette.Brass300 else Palette.Slate500)) {Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)}
           }
          }
         }
@@ -88,7 +87,7 @@ import org.json.JSONObject
         if(mode=="register")PasswordStrength(password)
        }
        ErrorNotice(s)
-       Button(onClick=submit,enabled=s.initialized&&!s.posting,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),shape=RoundedCornerShape(16.dp)) {
+       Button(onClick=submit,enabled=s.initialized&&!s.posting,modifier=Modifier.fillMaxWidth().heightIn(min=50.dp),shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=Palette.Navy950,contentColor=Palette.Brass300,disabledContainerColor=Soft.WellLight,disabledContentColor=Palette.Slate500)) {
         if(s.posting||!s.initialized){CircularProgressIndicator(Modifier.size(18.dp),strokeWidth=2.dp,color=MaterialTheme.colorScheme.onPrimary);Spacer(Modifier.width(8.dp))}
         Text(if(mode=="otp")"دریافت کد ورود"else if(mode=="register")"عضویت و شروع مشاوره"else "ورود به حساب کاربری",fontWeight=FontWeight.Bold)
        }
@@ -117,7 +116,7 @@ import org.json.JSONObject
 @Composable private fun AuthTab(text:String,selected:Boolean,modifier:Modifier,enabled:Boolean=true,onClick:()->Unit) {
  Column(modifier) {
   TextButton(onClick=onClick,enabled=enabled,modifier=Modifier.fillMaxWidth(),contentPadding=PaddingValues(vertical=8.dp,horizontal=0.dp)){Text(text,style=MaterialTheme.typography.labelLarge,fontWeight=if(selected)FontWeight.Bold else FontWeight.Normal,color=if(selected)SiteNavy else Color(0xFF475569))}
-  HorizontalDivider(color=if(selected)SiteGold else Color(0xFFF1F5F9),thickness=if(selected)2.dp else 1.dp)
+  HorizontalDivider(color=if(selected)Palette.Brass400 else Soft.HairlineLight,thickness=if(selected)2.dp else 1.dp)
  }
 }
 @Composable private fun AuthField(label:String,value:String,onValue:(String)->Unit,placeholder:String="",password:Boolean=false,numeric:Boolean=false,latin:Boolean=false,showLabel:Boolean=true,enabled:Boolean=true,onDone:(()->Unit)?=null,error:String?=null,firstError:Boolean=false,attempt:Int=0,onEdited:(()->Unit)?=null) {
@@ -125,14 +124,14 @@ import org.json.JSONObject
  Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
   if(showLabel)Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)
   CompositionLocalProvider(LocalLayoutDirection provides if(latin)LayoutDirection.Ltr else LayoutDirection.Rtl) {
-   OutlinedTextField(value=value,onValueChange={onValue(it);onEdited?.invoke()},enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).then(Modifier.semanticsLabel(label)).then(Modifier.fieldFeedback(error,firstError,attempt)),isError=!error.isNullOrBlank(),supportingText=if(!error.isNullOrBlank()){{Text(error)}}else null,singleLine=true,shape=RoundedCornerShape(16.dp),
+   OutlinedTextField(value=value,onValueChange={onValue(it);onEdited?.invoke()},enabled=enabled,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).then(Modifier.semanticsLabel(label)).then(Modifier.fieldFeedback(error,firstError,attempt)),isError=!error.isNullOrBlank(),supportingText=if(!error.isNullOrBlank()){{Text(error)}}else null,singleLine=true,shape=SiteShape.Xl,
     placeholder={Text(if(password)"••••••••"else placeholder,style=MaterialTheme.typography.bodyMedium)},
     visualTransformation=if(password&&!visible)PasswordVisualTransformation()else VisualTransformation.None,
     keyboardOptions=KeyboardOptions(keyboardType=if(password)KeyboardType.Password else if(numeric)KeyboardType.Phone else if(latin)KeyboardType.Email else KeyboardType.Text,imeAction=if(onDone!=null)ImeAction.Done else ImeAction.Next),
     keyboardActions=KeyboardActions(onDone={onDone?.invoke()},onNext={defaultKeyboardAction(ImeAction.Next)}),
     leadingIcon=if(password){{IconButton(onClick={visible=!visible}){Icon(if(visible)NativeIcons.VisibilityOff else NativeIcons.Visibility,if(visible)"پنهان کردن رمز"else "نمایش رمز")}}}else null,
     trailingIcon={Icon(if(password)NativeIcons.Lock else if(numeric)NativeIcons.Phone else NativeIcons.Mail,null,Modifier.size(20.dp))},
-    colors=OutlinedTextFieldDefaults.colors(unfocusedContainerColor=Color(0xFFF8FAFC),focusedContainerColor=Color(0xFFF8FAFC),unfocusedBorderColor=Color(0xFFDDE4ED),focusedBorderColor=SiteGold),textStyle=MaterialTheme.typography.bodyMedium)
+    colors=OutlinedTextFieldDefaults.colors(unfocusedContainerColor=Soft.WellLight,focusedContainerColor=Soft.WellLight,unfocusedBorderColor=Color.Transparent,focusedBorderColor=Palette.Brass400,errorBorderColor=MaterialTheme.colorScheme.error,cursorColor=Palette.Brass500),textStyle=MaterialTheme.typography.bodyMedium)
   }
  }
 }
@@ -152,7 +151,7 @@ internal fun passwordStrengthScore(value:String):Int {
  val labels=listOf("خیلی کوتاه","ضعیف","متوسط","قوی","بسیار امن")
  val colors=listOf(Color(0xFFF43F5E),Color(0xFFF59E0B),Color(0xFFEAB308),Color(0xFF10B981),Color(0xFF059669))
  Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
-  Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){repeat(4){i->Box(Modifier.weight(1f).height(4.dp).background(if(i<score)colors[score]else Color(0xFFE2E8F0),RoundedCornerShape(4.dp)))}}
+  Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){repeat(4){i->Box(Modifier.weight(1f).height(4.dp).background(if(i<score)colors[score]else Soft.HairlineLight,RoundedCornerShape(4.dp)))}}
   Text("قدرت رمز: ${labels[score]}",style=MaterialTheme.typography.labelSmall,color=colors[score])
  }
 }

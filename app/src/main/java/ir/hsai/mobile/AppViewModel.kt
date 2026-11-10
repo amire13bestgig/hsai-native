@@ -13,6 +13,8 @@ enum class Screen(val title:String) {
  CHAT("گفتگوی حقوقی"), HISTORY("گفتگوهای من"), DOCUMENTS("اوراق قضایی"), SCANNER("تحلیل مدارک"),
  LAWS("بانک قوانین"), CALCULATORS("محاسبه‌گرها"), DEADLINES("مهلت‌های قانونی"), PLANS("اشتراک و پرداخت‌ها"), TICKETS("پشتیبانی"), ACCOUNT("حساب کاربری")
 }
+/** متن مرحلهٔ آغازین، واژه‌به‌واژه از ChatAgentPage.jsx (setStreamStage). */
+const val CHAT_STAGE_OPENING: String = "در حال اتصال به موتور حقوقی و تشخیص مرجع صالح..."
 enum class ChatStatus { IDLE, SENDING, RECEIVING, COMPLETED, STOPPED, FAILED, UNKNOWN }
 data class ChatMessage(val role:String,val text:String,val id:Long?=null,val citations:List<JSONObject> = emptyList(),val image:String?=null,val document:JSONObject?=null,val feedback:String="",val verification:JSONObject?=null,val questions:List<JSONObject> = emptyList(),val suggestions:List<String> = emptyList())
 data class DocumentDraft(val id:Long,val title:String,val content:String)
@@ -23,7 +25,10 @@ data class AppUiState(
  val sidebarHistory:List<JSONObject> = emptyList(),val user:JSONObject=JSONObject(),val subscription:JSONObject=JSONObject(),val config:JSONObject=JSONObject(),
  val loading:Boolean=false,val posting:Boolean=false,val error:String="",val online:Boolean=true,
  val items:List<JSONObject> = emptyList(),val data:JSONObject=JSONObject(),val page:Int=1,val hasNext:Boolean=false,
- val messages:List<ChatMessage> = emptyList(),val draft:String="",val image:String?=null,val streaming:Boolean=false,val stage:String="",
+ val messages:List<ChatMessage> = emptyList(),val draft:String="",val image:String?=null,val stage:String="",
+ // FIX(chat-parity): وب‌سایت همیشه جریانی پاسخ می‌دهد و هیچ کلید کاربری برای این انتخاب ندارد.
+ // این پرچم فقط برای آزمون/پشتیبان مانده و پیش‌فرضش روشن است (دیگر در UI نمایش داده نمی‌شود).
+ val streaming:Boolean=true,val freeQuota:JSONObject=JSONObject(),
  val draftReady:Boolean=false,val pendingGuestMessage:Boolean=false,val chatStatus:ChatStatus=ChatStatus.IDLE,val retryReviewed:Boolean=false,
  val conversationId:Long?=null,val failedChat:JSONObject?=null,val dialog:AppDialog?=null,
  val lawSlug:String="",val lawQuery:String="",val lawSource:String="all",val lawTab:String="search",val planCycle:String="monthly",val calculator:String="court_fee",val result:JSONObject?=null
@@ -92,7 +97,7 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   back.clear();generation++;nextSession();val closing=sessionEpoch;api.token=""
   withContext(Dispatchers.IO){synchronized(ReminderPrivacy){if(sessionEpoch==closing&&api.token.isBlank()){vault.clear();getApplication<Application>().getSystemService(android.app.NotificationManager::class.java).cancelAll()}}}
   if(sessionEpoch!=closing||api.token.isNotBlank())return false
-  change{it.copy(authenticated=false,entryComplete=false,backDepth=0,sidebarHistory=emptyList(),user=JSONObject(),subscription=JSONObject(),items=emptyList(),data=JSONObject(),messages=emptyList(),conversationId=null,image=null,failedChat=null,dialog=null,pane=null,documentDrafts=emptyMap(),fieldErrors=emptyMap(),result=null,draftReady=false,pendingGuestMessage=false,chatStatus=ChatStatus.IDLE,retryReviewed=false)}
+  change{it.copy(authenticated=false,entryComplete=false,backDepth=0,sidebarHistory=emptyList(),user=JSONObject(),subscription=JSONObject(),items=emptyList(),data=JSONObject(),messages=emptyList(),conversationId=null,image=null,failedChat=null,dialog=null,pane=null,documentDrafts=emptyMap(),fieldErrors=emptyMap(),result=null,draftReady=false,pendingGuestMessage=false,chatStatus=ChatStatus.IDLE,retryReviewed=false,freeQuota=JSONObject())}
   return true
  }
  fun dismissReminderNotice(){reminderDismissed=true;vault.reminderNotice=false;change{it.copy(reminderNotice=false)}}
@@ -228,15 +233,21 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   if(payload==null||payload.str("message").isBlank())return
   val epoch=sessionEpoch
   if(!retry) { change { it.copy(messages=it.messages+ChatMessage("user",payload.str("message"),image=it.image),image=null) };setDraft("") }
-  change { it.copy(failedChat=null,draftReady=false,pendingGuestMessage=false,chatStatus=ChatStatus.SENDING,retryReviewed=false,stage="در حال ارسال پیام…") }
+  change { it.copy(failedChat=null,draftReady=false,pendingGuestMessage=false,chatStatus=ChatStatus.SENDING,retryReviewed=false,stage=CHAT_STAGE_OPENING) }
   post {
    try {
     if(s.streaming) streamChat(payload,epoch) else {
      val d=request("/chat","POST",payload)
-     if(epoch==sessionEpoch)change { it.copy(conversationId=d.safeLong("conversation_id")?:it.conversationId,messages=it.messages+ApiContract.requireReply(ApiContract.chatMessage(d)),chatStatus=ChatStatus.COMPLETED,subscription=d.optJSONObject("subscription")?:it.subscription) };loadSidebar()
+     if(epoch==sessionEpoch)change { it.copy(conversationId=d.safeLong("conversation_id")?:it.conversationId,messages=it.messages+ApiContract.requireReply(ApiContract.chatMessage(d)),chatStatus=ChatStatus.COMPLETED,subscription=d.optJSONObject("subscription")?:it.subscription,freeQuota=ApiContract.freeQuota(d)?:it.freeQuota) };loadSidebar()
     }
    } catch(e:Exception) {
     if(e is CancellationException)throw e
+    // FIX(chat-parity): وب‌سایت روی ۴۰۲ فقط پنجرهٔ ارتقای اشتراک را باز می‌کند (بدون توست خطای شبکه)
+    // و متن کاربر را برای تلاش بعدی نگه می‌دارد؛ پیام هم «نامشخص» علامت نمی‌خورد چون سرور قطعاً رد کرده است.
+    if(e is ApiException&&(e.status==402||ApiContract.isQuotaCode(e.code))) {
+     if(epoch==sessionEpoch){openUpgrade(e.message.orEmpty());change{it.copy(chatStatus=ChatStatus.FAILED,failedChat=payload,error=e.message.orEmpty())}}
+     return@post
+    }
     var preserved=false
     if(e is ApiException&&e.status==401){if(epoch==sessionEpoch&&expire(epoch)){setDraft(payload.str("message"));setImage(payload.str("image_base64").ifBlank { null });loginRequired(Screen.CHAT);preserved=true}}
     else if(epoch==sessionEpoch)change { it.copy(failedChat=payload,error=e.message.orEmpty(),chatStatus=if(e is ApiException&&ApiContract.definiteRejection(e.status))ChatStatus.FAILED else ChatStatus.UNKNOWN) }
@@ -246,19 +257,34 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
  }
  private suspend fun streamChat(payload:JSONObject,epoch:Int) {
   val buffer=StringBuilder();var done=false
-  change { it.copy(messages=it.messages+ChatMessage("assistant",""),chatStatus=ChatStatus.SENDING,stage="در حال برقراری ارتباط…") }
+  change { it.copy(messages=it.messages+ChatMessage("assistant",""),chatStatus=ChatStatus.SENDING,stage=CHAT_STAGE_OPENING) }
   try { api.stream(payload).takeWhile { event ->
    if(epoch!=sessionEpoch)return@takeWhile false
    when(event.name) {
     "stage" -> change { it.copy(chatStatus=ChatStatus.RECEIVING,stage=ApiContract.stageTitle(event.data)) }
     "delta" -> { buffer.append(event.data.str("chunk"));change { it.copy(chatStatus=ChatStatus.RECEIVING,messages=it.messages.dropLast(1)+it.messages.last().copy(text=buffer.toString())) } }
-    "articles" -> change { it.copy(messages=it.messages.dropLast(1)+it.messages.last().copy(citations=event.data.objects("articles"))) }
-    "done" -> { val m=ApiContract.requireReply(ApiContract.chatMessage(event.data,buffer.toString(),state.value.messages.last().citations));done=true;change { it.copy(conversationId=event.data.safeLong("conversation_id")?:it.conversationId,messages=it.messages.dropLast(1)+m,chatStatus=ChatStatus.COMPLETED,subscription=event.data.optJSONObject("subscription")?:it.subscription) } }
-    "error" -> throw ApiException(ApiContract.streamError(event.data))
+    "articles" -> {
+     // با سایت هم‌رفتار: عنوان مرحله از رویداد مقالات هم به‌روز می‌شود و مواد بررسی‌شده زنده نمایش داده می‌شوند.
+     val articles=event.data.objects("articles")
+     change { it.copy(chatStatus=ChatStatus.RECEIVING,stage=ApiContract.stageTitle(event.data).ifBlank{it.stage},messages=it.messages.dropLast(1)+it.messages.last().copy(citations=articles)) }
+    }
+    // قرارداد وب/وی‌آی‌وان هر دو پشتیبانی می‌شوند؛ شناسه و «گفتگوی جدید» از هر کدام که بود خوانده می‌شود.
+    "quota" -> change { it.copy(freeQuota=ApiContract.quotaEvent(event.data)?:it.freeQuota) }
+    "done" -> { val m=ApiContract.requireReply(ApiContract.chatMessage(event.data,buffer.toString(),state.value.messages.last().citations));done=true;change { it.copy(conversationId=ApiContract.conversationId(event.data)?:it.conversationId,messages=it.messages.dropLast(1)+m,chatStatus=ChatStatus.COMPLETED,subscription=event.data.optJSONObject("subscription")?:it.subscription,freeQuota=ApiContract.freeQuota(event.data)?:it.freeQuota) } }
+    "error" -> {
+     // FIX(chat-parity): کد خطای رویداد (NO_SUBSCRIPTION / MESSAGE_LIMIT_REACHED / …) دیگر گم نمی‌شود؛
+     // به همان ۴۰۲ وب نگاشت می‌شود تا کاربر «ارتقا» ببیند، نه «وضعیت نامشخص».
+     val code=ApiContract.streamErrorCode(event.data)
+     throw ApiException(ApiContract.streamError(event.data),ApiContract.quotaStatus(code),code)
+    }
    }
    event.name!="done"
   }.collect();if(done)loadSidebar();if(!done)throw ApiException("پاسخ جریانی کامل نشد؛ قبل از ارسال دوباره تاریخچه را بررسی کنید.")
-  } catch(e:Exception) { if(state.value.messages.lastOrNull()?.role=="assistant"&&!ApiContract.hasReply(state.value.messages.last()))change { it.copy(messages=it.messages.dropLast(1)) };throw e }
+  } catch(e:Exception) {
+   if(state.value.messages.lastOrNull()?.role=="assistant"&&!ApiContract.hasReply(state.value.messages.last()))change { it.copy(messages=it.messages.dropLast(1)) }
+   if(e is ApiException&&(e.status==402||ApiContract.isQuotaCode(e.code))){openUpgrade(e.message.orEmpty());change{it.copy(chatStatus=ChatStatus.FAILED,failedChat=payload,error=e.message.orEmpty())};return}
+   throw e
+  }
  }
  fun feedback(id:Long,value:String) { post { request("/messages/$id/feedback","POST",JSONObject().put("feedback",value));change { it.copy(messages=it.messages.map { m->if(m.id==id)m.copy(feedback=value)else m }) };notice("بازخورد ثبت شد.") } }
  fun simplify(id:Long) { val conv=state.value.conversationId;post { val d=request("/messages/$id/simplify","POST",JSONObject());val text=ApiContract.simplifiedText(d);if(conv==state.value.conversationId)change { it.copy(messages=it.messages+ChatMessage("assistant",text)) } } }
@@ -296,6 +322,11 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
  fun viewArticle(id:Long,inline:Boolean=false) { if(state.value.posting)return;if(inline)change{it.copy(pane=null)};val g=generation;post {val d=request("/laws/articles/$id",authenticated=false);if(g==generation){val article=d.optJSONObject("article")?:d;if(inline)change{it.copy(pane=AppDialog("article",article.str("law_name","متن قانون"),article),error="")}else openDialog("article",article.str("law_name","متن قانون"),article)}} }
  fun askAboutArticle(article:JSONObject) {setDraft("توضیح ساده و کاربردی ماده ${article.str("article_number")} ${article.str("law_name")} را بگو و کاربرد آن را توضیح بده.");change{it.copy(dialog=null)};navigate(Screen.CHAT)}
  fun answerQuestions(text:String) {if(state.value.posting||text.isBlank())return;setDraft(text);sendChat()}
+ /**
+  * همان کاری که `openUpgradeModal` وب‌سایت می‌کند: پیام سرور + مسیر ارتقا، بدون بلوکه‌کردن گفتگو.
+  * پیام کاربر (failedChat) حفظ می‌شود تا بعد از تمدید اشتراک یک‌کلیک ارسال شود.
+  */
+ fun openUpgrade(message:String="") { change { it.copy(dialog=AppDialog("upgrade","ارتقا یا تمدید اشتراک",JSONObject().put("message",message))) } }
  fun confirmRetryAfterReview() {change{it.copy(retryReviewed=true,dialog=null)};sendChat(true)}
  fun stopChat() { if(state.value.posting&&state.value.chatStatus in setOf(ChatStatus.SENDING,ChatStatus.RECEIVING)){postJob?.cancel();change{it.copy(chatStatus=ChatStatus.STOPPED,failedChat=null)}} }
  fun cycle(cycle:String) { change { it.copy(planCycle=cycle) } }

@@ -66,6 +66,26 @@ class MainActivity:ComponentActivity() {
    }
   } else if(uri!=null)vm.notice("درخواست دریافت بازیابی نشد؛ سند را دوباره انتخاب کنید.")
  }
+ /**
+  * تایپ صوتی: وب‌سایت از `webkitSpeechRecognition` استفاده می‌کند (toggleVoiceDictation).
+  * در اندروید معادل بدون‌مجوزش `RecognizerIntent` است؛ موتور گفتارِ خودِ دستگاه کار را
+  * می‌کند و نتیجه به پیش‌نویس اضافه می‌شود. اگر موتور نبود، پیام روشن داده می‌شود.
+  */
+ private val dictateSpeech=registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
+  if(result.resultCode==RESULT_OK) {
+   val spoken=result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+   if(!spoken.isNullOrBlank()){val current=vm.state.value.draft.trim();vm.setDraft(if(current.isBlank())spoken else current+" "+spoken)}
+   else vm.notice("گفتاری تشخیص داده نشد؛ دوباره تلاش کنید یا تایپ کنید.")
+  } else vm.notice("تایپ صوتی لغو شد.")
+ }
+ private fun dictate(){
+  val intent=Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+   putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+   putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE,"fa-IR")
+   putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT,"ماجرا را بگویید")
+  }
+  runCatching{dictateSpeech.launch(intent)}.onFailure{vm.notice("تشخیص گفتار روی این دستگاه در دسترس نیست؛ می‌توانید تایپ کنید.")}
+ }
  private val notifications=registerForActivityResult(ActivityResultContracts.RequestPermission()){granted->val r=pendingReminder;pendingReminder=null;if(granted&&r!=null)schedule(r)else vm.notice("اجازه اعلان داده نشد؛ از فایل تقویم استفاده کنید.")}
  override fun onCreate(savedInstanceState:Bundle?) {
   super.onCreate(savedInstanceState)
@@ -77,12 +97,15 @@ class MainActivity:ComponentActivity() {
   enableEdgeToEdge()
   network.registerDefaultNetworkCallback(networkCallback)
   setContent {
-   Box(Modifier.fillMaxSize()) {
-    NativeApp(vm,::gallery,::camera,{editing=true},snacks)
-    Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(SiteNavy))
-   }
+   // وضعیت پیش از استفاده در نوار وضعیت خوانده می‌شود (ترتیب اعلان مهم است).
    val state by vm.state.collectAsState()
-   SideEffect { androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply { isAppearanceLightStatusBars=false;isAppearanceLightNavigationBars=state.entryComplete&&!state.dark } }
+   Box(Modifier.fillMaxSize()) {
+    NativeApp(vm,::gallery,::camera,::dictate,{editing=true},snacks)
+    Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
+     // UI-parity: نوار وضعیت در میز کار به رنگ بوم سایت است؛ در صفحهٔ ورود (پس‌زمینهٔ سرمه‌ای) همان سرمه‌ای می‌ماند.
+     .background(if(state.entryComplete)Soft.bg() else SiteNavy))
+   }
+   SideEffect { androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply { isAppearanceLightStatusBars=state.entryComplete&&!state.dark;isAppearanceLightNavigationBars=state.entryComplete&&!state.dark } }
    if(editing&&state.entryComplete&&state.image!=null)HsaiTheme(state.dark){RedactionDialog(state.image!!,{editing=false}){data->vm.setImage(data);editing=false;vm.notice("نسخه پوشانده‌شده انتخاب شد؛ پیش از ارسال بازبینی کنید.")}}
   }
   lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.STARTED){vm.effects.collect{effect->when(effect){
@@ -147,5 +170,5 @@ class MainActivity:ComponentActivity() {
   if(i?.data?.scheme=="hsai"&&i.data?.host=="payment")lifecycleScope.launch{vm.state.filter{it.initialized}.first();if(vm.state.value.authenticated&&vm.state.value.entryComplete)vm.verifyPayment()else vm.loginRequired(Screen.PLANS)}}
  override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);handleIntent(intent)}
  override fun onResume(){super.onResume();if(awaitingPayment){awaitingPayment=false;if(vm.state.value.entryComplete)vm.verifyPayment()else vm.loginRequired(Screen.PLANS)}}
- override fun onDestroy(){runCatching{network.unregisterNetworkCallback(networkCallback)};super.onDestroy()}
+ override fun onDestroy(){runCatching{network.unregisterNetworkCallback(networkCallback)};Speaker.shutdown();super.onDestroy()}
 }

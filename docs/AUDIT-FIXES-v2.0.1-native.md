@@ -28,6 +28,8 @@
 | هارنس اجرایی (کد واقعیِ `ApiContract`, `JsonExt`, `UiPresentation`, `Domain`) | **۲۶/۲۶ assertion موفق** | `bash verify/run.sh` |
 | تطبیق قرارداد با سرور زندهٔ `hsai.ir/api/v1` | `POST /calculators/compute` پاسخ `ok:true`؛ فیلدهای `deadlines`/`scanner`/`documents` با `server/routes/*.js` مطابق | بخش ۶ |
 | تحلیل عمق آکولاد کل فایل‌ها | هیچ براکت اضافه/کم نیست | بخش ۵-ج |
+| بازبینی نوع با android-35 + Compose 1.7.6 + Material3 1.3.1 | **۰ خطای نوع** روی کل ماژول | `bash verify/typecheck.sh` |
+| برابری توکن‌های بصری با سایت | **۳۹/۳۹** | `python3 verify/tokens.py` |
 
 ### آنچه اثبات **نشد** (صادقانه)
 
@@ -196,7 +198,21 @@ POST https://hsai.ir/api/v1/calculators/compute
 
 ---
 
-## ۷) کارهای باقی‌مانده (پیشنهاد، انجام‌نشده)
+## ۷) بازطراحی بصری مطابق سایت (درخواست «UI اپ را دقیقاً مثل سایت کن»)
+
+لایهٔ بصری از پایه بازنویسی شد تا با زبان طراحی سایت یکی شود: پالت کامل navy/brass،
+سطوح `--soft-*` سایت، گردی‌های ۱۲/۱۶/۲۴، تایپوگرافی سیال Vazirmatn با نسبت خط ۱.۸۵،
+کارت خمیری، حباب‌های چت با گوشهٔ ۹dp، نوار بالای کلای‌بار، ورودی چاهی و دکمهٔ سرمه‌ای/برنجی.
+نگاشت کامل کلاس‌های CSS به Compose در `docs/UI-PARITY-SITE.md` آمده است.
+
+فایل‌های بازنویسی‌شده: `Theme.kt` (پالت، سطوح، `SiteShape`، تایپوگرافی، `GlassCard`)،
+`SiteDesign.kt` (شیشه، سربرگ، تب، برگهٔ کاغذی قضایی)، `Screens.kt` (ورودی/دکمه/حباب/کارت‌ها)،
+`LoginScreen.kt`، `WorkspaceShell.kt` و `MainActivity.kt` (نوار وضعیت).
+
+شاهد: `verify/tokens.py` (۳۹/۳۹ برابری توکن) و `verify/typecheck.sh` (۰ خطای نوع با
+`android.jar` ۳۵ و Compose/Material3 واقعی؛ کدبایت نهایی همچنان نیازمند Gradle است).
+
+## ۸) کارهای باقی‌مانده (پیشنهاد، انجام‌نشده)
 
 1. اجرای `./gradlew testDebugUnitTest lintDebug assembleDebug` روی ماشین دارای Android SDK 35 (شرط قطعی پذیرش).
 2. تست دستی روی دستگاه: ثبت یادآور (WorkManager + Doze)، بازخوانی نشست از Keystore پس از ری‌استارت، دوربین/گالری، اعلان اندروید ۱۳+.

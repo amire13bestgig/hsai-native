@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- پس‌زمینهٔ آیکون تطبیقی: گرادیان سرمه‌ای سایت (navy-950 → navy-900).
+     قبلاً آیکون، «تصویر آمادهٔ قاب‌دار» را به‌عنوان پیش‌زمینه استفاده می‌کرد و زیر
+     ماسک سیستم دو قاب گرد روی هم می‌افتاد؛ حالا پس‌زمینه و نشان جدا هستند. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+ <gradient android:type="linear" android:angle="270"
+  android:startColor="#132042" android:endColor="#07141E"/>
+</shape>

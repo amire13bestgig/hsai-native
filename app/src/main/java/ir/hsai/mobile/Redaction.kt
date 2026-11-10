@@ -44,7 +44,7 @@ import kotlin.math.min
  FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){
   TextButton(onClick={if(masks.isNotEmpty())masks.removeAt(masks.lastIndex)}){Text("برگشت")}
   TextButton(onClick={masks.clear()}){Text("پاک کردن پوشش‌ها")}
-  Button(onClick={
+  Button(shape=SiteShape.Xl,onClick={
    val out=bitmap.copy(Bitmap.Config.ARGB_8888,true);val canvas=android.graphics.Canvas(out);val paint=android.graphics.Paint().apply{color=android.graphics.Color.BLACK;style=android.graphics.Paint.Style.FILL}
    val sx=bitmap.width.toFloat()/canvasSize.width;val sy=bitmap.height.toFloat()/canvasSize.height
    masks.forEach{r->canvas.drawRect(r.left*sx,r.top*sy,r.right*sx,r.bottom*sy,paint)}

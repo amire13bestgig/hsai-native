@@ -3,6 +3,8 @@ package ir.hsai.mobile
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.*
@@ -15,6 +17,11 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 class ApiException(message: String, val status: Int = 0, val code: String = "") : Exception(message)
+/** همان پیام و همان سقف زمانی وب‌سایت (utils/api.js → idleTimeoutMs = 75000). */
+const val STREAM_IDLE_SECONDS: Long = 75L
+const val STREAM_IDLE_MESSAGE: String = "پاسخ سرور قطع شد (بی‌حرکتی بیش از حد). لطفاً مجدداً ارسال کنید."
+/** نشانهٔ داخلی: مسیر قدیمی `/api/chat/stream` روی این استقرار نیست. */
+const val LEGACY_ROUTE_MISSING: String = "LEGACY_ROUTE_MISSING"
 data class StreamEvent(val name: String, val data: JSONObject)
 
 /** Only the official API is used by the app. The alternate constructor base is for JVM tests. */
@@ -22,7 +29,16 @@ class ApiClient(
     private val base: String = "https://hsai.ir/api/v1",
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(90, TimeUnit.SECONDS)
-        .writeTimeout(45, TimeUnit.SECONDS).retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build()
+        .writeTimeout(45, TimeUnit.SECONDS).retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build(),
+    /**
+     * FIX(chat-parity): وب‌سایت گفتگو را از خانوادهٔ مسیرهای `/api/chat` می‌گیرد، نه `/api/v1/chat`.
+     * تفاوت رفتاری واقعی: در `/api/v1/chat` کاربرِ بدون اشتراک پیش از هر پاسخی `NO_SUBSCRIPTION`
+     * می‌گیرد، ولی `/api/chat/stream` سهمیهٔ رایگان ماهانه را مصرف می‌کند و پاسخ می‌دهد
+     * (رویداد `quota`) — همان چیزی که کاربر در سایت می‌بیند. تاریخچه‌ای هم که به مدل می‌رود
+     * `verification_json` را همراه دارد. برای همین جویبار از این ریشه گرفته می‌شود و اگر
+     * مسیر قدیمی در دسترس نبود (۴۰۴/۴۰۵/۵۰۱) یک‌بار به `/api/v1` برمی‌گردد.
+     */
+    private val webBase: String = "https://hsai.ir/api"
 ) {
     @Volatile var token: String = ""
         set(value){require(value.isEmpty()||SessionTokens.headerSafe(value)){"نشست دریافتی معتبر نیست؛ دوباره وارد شوید."};field=value}
@@ -61,15 +77,43 @@ class ApiClient(
         }
     }
 
-    fun stream(body: JSONObject): Flow<StreamEvent> = callbackFlow {
-        val call = http.newCall(build("/chat/stream", "POST", body, true).newBuilder().header("Accept", "text/event-stream").build())
+    /**
+     * FIX(chat-parity): وب‌سایت یک «نگهبان بی‌حرکتی» ۷۵ ثانیه‌ای دارد و اگر هیچ بایتی نرسد
+     * جریان را می‌بندد تا دکمهٔ ارسال برای همیشه قفل نماند. اینجا همان سقف با readTimeout
+     * روی همان کلاینت و پیام هم‌معنای سایت اعمال می‌شود.
+     */
+    fun stream(body: JSONObject): Flow<StreamEvent> = flow {
+        try {
+            emitAll(streamFrom(body, webBase, allowFallback = true))
+        } catch (e: ApiException) {
+            // مسیر `/api/chat/stream` روی این استقرار نیست (۴۰۴/۴۰۵/۵۰۱): یک‌بار از /api/v1 ادامه می‌دهیم.
+            if (e.code != LEGACY_ROUTE_MISSING) throw e
+            emitAll(streamFrom(body, base, allowFallback = false))
+        }
+    }
+
+    private fun streamFrom(body: JSONObject, root: String, allowFallback: Boolean): Flow<StreamEvent> = callbackFlow {
+        val streamingHttp = http.newBuilder().readTimeout(STREAM_IDLE_SECONDS, TimeUnit.SECONDS).build()
+        val request = build("/chat/stream", "POST", body, true).newBuilder()
+            .url(root.trimEnd('/') + "/chat/stream")
+            .header("Accept", "text/event-stream").build()
+        val call = streamingHttp.newCall(request)
         call.enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) { close(ApiException("ارتباط با سرویس قطع شد. دوباره تلاش کنید.")) }
+            override fun onFailure(call: Call, e: IOException) { close(if(e is java.net.SocketTimeoutException||e.cause is java.net.SocketTimeoutException)ApiException(STREAM_IDLE_MESSAGE,408,"STREAM_IDLE")else ApiException("ارتباط با سرویس قطع شد. دوباره تلاش کنید.")) }
             override fun onResponse(call: Call, response: Response) {
                 response.use { r ->
                     if (!r.isSuccessful) {
-                        val error = runCatching { JSONObject(r.body?.byteStream()?.use{String(TransportLimits.read(it,64*1024),Charsets.UTF_8)}.orEmpty()).optJSONObject("error") }.getOrNull()
-                        close(ApiException(error?.optString("message") ?: "خطای سرویس", r.code,error?.str("code").orEmpty())); return
+                        val raw = runCatching { r.body?.byteStream()?.use{String(TransportLimits.read(it,64*1024),Charsets.UTF_8)}.orEmpty() }.getOrDefault("")
+                        val envelope = runCatching { JSONObject(raw) }.getOrNull()
+                        val error = envelope?.optJSONObject("error")
+                        if (allowFallback && r.code in setOf(404, 405, 501)) { close(ApiException("مسیر وب در دسترس نیست.", r.code, LEGACY_ROUTE_MISSING)); return }
+                        close(ApiException(
+                            error?.optString("message")?.takeIf { it.isNotBlank() }
+                                ?: envelope?.optString("error")?.takeIf { it.isNotBlank() }
+                                ?: "خطای سرویس",
+                            r.code,
+                            error?.str("code").orEmpty().ifBlank { envelope?.str("code").orEmpty() }))
+                        return
                     }
                     try {
                         val source = r.body?.source() ?: throw IOException("Empty body")
@@ -80,12 +124,13 @@ class ApiClient(
                         }
                         parser.line("")?.let { trySendBlocking(it) }
                         close()
-                    } catch (e: Exception) { close(if(e is ApiException)e else ApiException("دریافت پاسخ جریانی کامل نشد. اتصال را بررسی کنید.")) }
+                    } catch (e: Exception) { close(when { e is ApiException->e; e is java.net.SocketTimeoutException->ApiException(STREAM_IDLE_MESSAGE,408,"STREAM_IDLE"); e.cause is java.net.SocketTimeoutException->ApiException(STREAM_IDLE_MESSAGE,408,"STREAM_IDLE"); else->ApiException("دریافت پاسخ جریانی کامل نشد. اتصال را بررسی کنید.") }) }
                 }
             }
         })
         awaitClose { call.cancel() }
     }
+
     /** Cancellation covers reading the body as well as waiting for response headers. */
     private suspend fun <T> Call.consume(block:(Response)->T):T=suspendCancellableCoroutine { continuation->
         continuation.invokeOnCancellation{cancel()}

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="ir.hsai.mobile.AuthenticatedApiTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-05T14:07:36" hostname="e2b.local" time="4.797">
-  <properties/>
-  <testcase name="nativeClientReadsAuthenticatedContracts" classname="ir.hsai.mobile.AuthenticatedApiTest" time="4.797"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

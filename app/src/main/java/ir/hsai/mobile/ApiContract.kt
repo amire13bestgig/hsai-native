@@ -64,7 +64,12 @@ object ApiContract {
   return data.objects("quick_questions").ifEmpty{v?.objects("quick_questions").orEmpty()}.ifEmpty{v?.optJSONObject("intake")?.objects("questions").orEmpty()}
  }
  fun paymentAuthority(payment:JSONObject)=payment.str("authority",payment.str("authority_code"))
- fun stageTitle(data:JSONObject)=data.str("title",data.str("message",data.optJSONObject("stage")?.str("title").orEmpty()))
+ /** شناسهٔ گفتگو در هر دو قرارداد: `/api/v1` مقدار تخت می‌دهد و `/api/chat` شیء `conversation`. */
+ fun conversationId(data:JSONObject):Long? = data.safeLong("conversation_id") ?: data.optJSONObject("conversation")?.safeLong("id")
+ fun isNewConversation(data:JSONObject)=data.optBoolean("is_new_conversation",false)
+ /** رویداد `quota` فقط در قرارداد وب هست: سهمیهٔ رایگان پس از هر پیام. */
+ fun quotaEvent(data:JSONObject):JSONObject? = freeQuota(data)
+  fun stageTitle(data:JSONObject)=data.str("title",data.str("message",data.optJSONObject("stage")?.str("title").orEmpty()))
  fun streamError(data:JSONObject):String = data.optJSONObject("error")?.str("message")?.takeIf(String::isNotBlank)
   ?: data.str("message").ifBlank { data.str("error").ifBlank { "دریافت پاسخ ناموفق بود." } }
 
@@ -82,6 +87,23 @@ object ApiContract {
    document=message.optJSONObject("printable_document")?:data.optJSONObject("printable_document")?:v?.optJSONObject("printable_document"),
    feedback=message.str("feedback"),verification=v,questions=questions,suggestions=suggestions(message).ifEmpty{suggestions(data)})
  }
+ /**
+  * FIX(chat-parity): رویداد `error` جویبار SSE هیچ کد HTTP ندارد؛ سرور فقط `code` می‌فرستد.
+  * نسخهٔ قبلی همهٔ این خطاها را «وضعیت نامشخص» می‌دید و کاربر را به جریان «ارسال دوباره»
+  * می‌برد، در حالی که وب‌سایت همان کد را به ۴۰۲ نگاشت می‌کند و پنجرهٔ ارتقای اشتراک را باز
+  * می‌کند. اینجا همان نگاشت، تک‌جا و آزمون‌پذیر.
+  */
+ fun quotaStatus(code:String):Int = when {
+  code.isEmpty()->0
+  code.contains("SUBSCRIPTION")||code.contains("LIMIT")||code.contains("QUOTA")->402
+  code=="VALIDATION_ERROR"->400
+  code in setOf("NOT_FOUND","FORBIDDEN","UNAUTHORIZED")->if(code=="NOT_FOUND")404 else 403
+  else->0
+ }
+ fun isQuotaCode(code:String)=quotaStatus(code)==402
+ fun streamErrorCode(data:JSONObject):String = data.str("code").ifBlank { data.optJSONObject("error")?.str("code").orEmpty() }
+ /** سهمیهٔ رایگان ماهانهٔ مهمان/بدون‌اشتراک — وب‌سایت آن را در سایدبار نشان می‌دهد. */
+ fun freeQuota(data:JSONObject):JSONObject? = data.optJSONObject("free_quota") ?: data.optJSONObject("quota")?.takeIf { it.has("remaining") }
  fun definiteRejection(status:Int)=status in 400..499&&status !in setOf(408,409,499)
  fun verificationKeys(data:JSONObject)=UiPresentation.keys(data).filterNot{it in setOf("printable_document","quick_questions","intake","mode","confidence")}
  fun hasReply(message:ChatMessage)=message.text.isNotBlank()||message.document?.length()?.let{it>0}==true||message.verification?.let{verificationKeys(it).isNotEmpty()}==true||message.questions.isNotEmpty()||message.citations.isNotEmpty()||message.suggestions.isNotEmpty()
