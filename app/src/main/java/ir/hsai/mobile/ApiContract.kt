@@ -104,9 +104,46 @@ object ApiContract {
  fun streamErrorCode(data:JSONObject):String = data.str("code").ifBlank { data.optJSONObject("error")?.str("code").orEmpty() }
  /** سهمیهٔ رایگان ماهانهٔ مهمان/بدون‌اشتراک — وب‌سایت آن را در سایدبار نشان می‌دهد. */
  fun freeQuota(data:JSONObject):JSONObject? = data.optJSONObject("free_quota") ?: data.optJSONObject("quota")?.takeIf { it.has("remaining") }
+ // ── هوشمندی‌های پاسخ (همه از میدان `verification` پاسخ سرور؛ هیچ‌کدام ساختگی نیست) ──
+ /** حالت پاسخ: rag / calculator_and_rag / document / conversational / quick_question / scanner */
+ fun mode(v:JSONObject?):String = v?.str("mode").orEmpty()
+ fun hideBadge(v:JSONObject?):Boolean = v?.optBoolean("hide_badge",false)==true
+ /** کارت محاسبهٔ قانونی: {title, items:[{label,value}]} */
+ fun calcCard(v:JSONObject?):JSONObject? = v?.optJSONObject("calc_card")?.takeIf{it.objects("items").isNotEmpty()}
+ /** کارت آرام‌سازی ابلاغیهٔ ثنا: {arrest_risk, attendance, deadline_summary} */
+ fun sanaReassurance(v:JSONObject?):JSONObject? = v?.optJSONObject("sana_reassurance")?.takeIf{it.length()>0}
+ /** راهنمای عملی شهروند: {quick_summary, deadly_mistakes, action_plan, evidence_meter, path_comparison} */
+ fun citizenGuide(v:JSONObject?):JSONObject? = v?.optJSONObject("citizen_guide")?.takeIf{it.length()>0}
+ fun quickSummary(v:JSONObject?):JSONObject? = citizenGuide(v)?.optJSONObject("quick_summary")?.takeIf{it.length()>0}
+ /** متن بازنویسی‌شدهٔ «ساده‌تر بگو» — همان کلیدی که سایت رندر می‌کند. */
+ fun simplifiedContent(data:JSONObject):String = data.optJSONObject("verification")?.str("simplified_content").orEmpty()
+  .ifBlank { verification(data)?.str("simplified_content").orEmpty() }
+ fun riskScore(v:JSONObject?):Int = v?.optInt("risk_score",0) ?: 0
+ fun redFlags(v:JSONObject?):List<JSONObject> = v?.objects("red_flags").orEmpty()
+ /** شمارش استنادهای واقعی برای منطق «برچسب حالت» مثل سایت. */
+ fun modeBadgeHidden(v:JSONObject?,cited:Int,hasDocument:Boolean):Boolean {
+  if(v==null)return true
+  if(hideBadge(v))return true
+  val m=mode(v)
+  if(m=="conversational"||m=="quick_question")return true
+  return (m.isBlank()||m=="rag")&&cited==0&&!hasDocument
+ }
  fun definiteRejection(status:Int)=status in 400..499&&status !in setOf(408,409,499)
- fun verificationKeys(data:JSONObject)=UiPresentation.keys(data).filterNot{it in setOf("printable_document","quick_questions","intake","mode","confidence")}
- fun hasReply(message:ChatMessage)=message.text.isNotBlank()||message.document?.length()?.let{it>0}==true||message.verification?.let{verificationKeys(it).isNotEmpty()}==true||message.questions.isNotEmpty()||message.citations.isNotEmpty()||message.suggestions.isNotEmpty()
+ fun verificationKeys(data:JSONObject)=UiPresentation.keys(data).filterNot{it in setOf("printable_document","quick_questions","intake","mode","confidence","calc_card","sana_reassurance","citizen_guide","hide_badge","simplified_content","stages","competent_authority","authority","risk_score","red_flags","scan_mode")}
+ /**
+  * «پاسخ قابل نمایش» — کارت‌های هوشمندی هم محتوا هستند.
+  * (وقتی این کارت‌ها از چاپ خام `verification` جدا شدند، باید اینجا هم شمرده شوند،
+  * وگرنه پاسخی که فقط کارت محاسبه/راهنما دارد «خالی» تلقی می‌شد.)
+  */
+ fun hasReply(message:ChatMessage):Boolean {
+  val v=message.verification
+  if(message.text.isNotBlank())return true
+  if(message.simplified?.isNotBlank()==true)return true
+  if(message.document?.length()?.let{it>0}==true)return true
+  if(message.questions.isNotEmpty()||message.citations.isNotEmpty()||message.suggestions.isNotEmpty())return true
+  if(v==null)return false
+  return verificationKeys(v).isNotEmpty()||calcCard(v)!=null||sanaReassurance(v)!=null||citizenGuide(v)!=null||mode(v).isNotBlank()
+ }
  fun requireReply(message:ChatMessage):ChatMessage {if(!hasReply(message))throw ApiException("پاسخ قابل نمایش دریافت نشد؛ پیش از ارسال دوباره تاریخچه را بررسی کنید.",0,"EMPTY_CHAT_RESPONSE");return message}
  fun suggestions(data:JSONObject):List<String> {
   val lists=listOf("suggestions","suggested_actions").mapNotNull { key->
@@ -118,4 +155,86 @@ object ApiContract {
    else->null
   }}}.distinct()
  }
+
+ // ═══════════════════════════════════════════════════════════════════════════
+ // دور پنجم — قراردادهای همان قابلیت‌هایی که وب‌سایت داشت و اپ نداشت.
+ // همهٔ این توابع خالص‌اند (بدون اندروید) تا در verify/Harness.kt آزمون شوند.
+ // ═══════════════════════════════════════════════════════════════════════════
+
+ /** «قوانین و آراء مرتبط» از `GET /laws/:id/relations`؛ هیچ‌وقت null نمی‌دهد. */
+ fun relations(data:JSONObject):List<JSONObject> = data.objects("relations")
+ fun relationOutgoing(row:JSONObject,articleId:Long):Boolean = row.safeLong("source_article_id")==articleId
+ fun relationLaw(row:JSONObject,articleId:Long):String =
+  if(relationOutgoing(row,articleId))row.str("target_law_name")else row.str("source_law_name")
+ fun relationType(row:JSONObject):String = row.str("relation_type",row.str("edge_type"))
+ fun relationNote(row:JSONObject):String = row.str("note",row.str("description"))
+ /**
+  * عنوان سمت دیگر رابطه. اگر سرور عنوان مادهٔ مقصد را join نکرده باشد،
+  * به «نام قانون + شمارهٔ ماده» برمی‌گردیم و اگر آن هم نبود، متن رابطه.
+  */
+ fun relationTitle(row:JSONObject,articleId:Long):String {
+  val outgoing=relationOutgoing(row,articleId)
+  val direct=if(outgoing)row.str("target_title")else row.str("source_title")
+  if(direct.isNotBlank())return direct
+  val law=(if(outgoing)row.str("target_law_name")else row.str("source_law_name")).ifBlank { row.str("target_law_name").ifBlank { row.str("source_law_name") } }
+  val num=if(outgoing)row.str("target_article_number")else row.str("source_article_number")
+  val composed=buildString {
+   if(law.isNotBlank())append(law)
+   if(num.isNotBlank()){if(isNotEmpty())append(" — ");append("ماده ");append(num)}
+  }
+  return composed.ifBlank { relationNote(row).ifBlank { "مادهٔ مرتبط" } }
+ }
+
+ /** صورت‌حساب `/billing/my-billing` با کلیدهای همیشه‌حاضر (بدون NPE در UI). */
+ fun billing(data:JSONObject):JSONObject = JSONObject()
+  .put("active_subscription",data.optJSONObject("active_subscription")?:JSONObject())
+  .put("quota",data.optJSONObject("quota")?:JSONObject())
+  .put("subscription_history",data.optJSONArray("subscription_history")?:org.json.JSONArray())
+  .put("payments",data.optJSONArray("payments")?:org.json.JSONArray())
+
+ /** وضعیت لغو تمدید خودکار: سرور هم بولین و هم ۰/۱ برمی‌گرداند. */
+ fun autoRenewCancelled(subscription:JSONObject?):Boolean =
+  subscription!=null&&(subscription.optBoolean("cancel_at_period_end",false)||subscription.optInt("cancel_at_period_end",0)==1)
+ fun autoRenewReason(subscription:JSONObject?):String = subscription?.str("notes").orEmpty()
+
+ /** تأیید ایمیل: سرور ایمیل تأییدنشده را با ۰ یا false برمی‌گرداند. */
+ fun emailVerified(user:JSONObject?):Boolean =
+  user!=null&&(user.optBoolean("email_verified",false)||user.optInt("email_verified",0)==1)
+
+ /** nonce دستگاه برای جریان ورود گوگل؛ ۳۶ نویسهٔ هگز (۱۶..۶۴ و امن با قاعدهٔ سرور). */
+ fun newHandoffNonce():String {
+  val bytes=ByteArray(18);java.security.SecureRandom().nextBytes(bytes)
+  val digits="0123456789abcdef";val out=StringBuilder(36)
+  for(b in bytes){val v=b.toInt() and 0xff;out.append(digits[v shr 4]);out.append(digits[v and 0x0f])}
+  return out.toString()
+ }
+ fun handoffNonceValid(nonce:String):Boolean = Regex("^[A-Za-z0-9_-]{16,64}$").matches(nonce)
+ /** برگهٔ دست‌دهی: امضاشدهٔ base64url با یک نقطه؛ فقط شکل آن بررسی می‌شود (امضا را سرور می‌سنجد). */
+ fun handoffTokenShapeOk(token:String):Boolean = token.length in 16..1024 && token.none{it.isWhitespace()}
+ /** نشانی شروع ورود با گوگل در مرورگر — همان قراردادی که سرور وب برای اپ می‌شناسد. */
+ fun googleStartUrl(nonce:String):String =
+  "https://hsai.ir/api/auth/google/start?app_return=1&app_nonce="+java.net.URLEncoder.encode(nonce,"UTF-8")+"&next=%2Fapp"
+
+ data class HandoffLink(val handoff:String,val nonce:String,val error:String,val linkToken:String,val email:String)
+ /**
+  * تحلیل پیوند بازگشتی `hsai://auth/google?...` که مرورگر به اپ می‌دهد.
+  * بدون Uri اندروید نوشته شده تا در آزمون JVM هم اجرا شود.
+  */
+ fun parseHandoffLink(raw:String):HandoffLink? {
+  val link=raw.trim()
+  if(!link.startsWith("hsai://auth/google"))return null
+  val query=link.substringAfter('?',"")
+  if(query.isBlank())return null
+  val params=HashMap<String,String>()
+  query.split('&').forEach { part->
+   if(part.isNotBlank()){val key=part.substringBefore('=');val value=part.substringAfter('=',"")
+    if(key.isNotBlank())params[key]=runCatching{java.net.URLDecoder.decode(value,"UTF-8")}.getOrDefault(value)}
+  }
+  return HandoffLink(params["handoff"].orEmpty(),params["nonce"].orEmpty(),params["error"].orEmpty(),params["link_token"].orEmpty(),params["email"].orEmpty())
+ }
+ /** کد پیگیری فرم تماس عمومی. */
+ fun contactTracking(data:JSONObject):String = data.str("tracking_code")
+ /** روش‌های ورود متصل به حساب (Google) — `GET /auth/identities`. */
+ fun identities(data:JSONObject):List<JSONObject> = data.objects("providers")
+ fun hasGoogleIdentity(data:JSONObject):Boolean = identities(data).any { it.str("provider")=="google" }
 }

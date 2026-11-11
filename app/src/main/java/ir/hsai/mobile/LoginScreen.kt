@@ -80,7 +80,7 @@ import org.json.JSONObject
         Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
          Text("رمز عبور",style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)
-         if(mode=="login")TextButton(onClick={vm.openDialog("external","بازیابی رمز عبور",JSONObject().put("url","https://hsai.ir/auth/forgot-password"))},contentPadding=PaddingValues(0.dp)){Text("فراموشی رمز عبور؟",color=Copper,style=MaterialTheme.typography.labelMedium)}
+         if(mode=="login")TextButton(onClick={vm.openDialog("forgot","بازیابی رمز عبور")},contentPadding=PaddingValues(0.dp)){Text("فراموشی رمز عبور؟",color=Copper,style=MaterialTheme.typography.labelMedium)}
         }
         AuthField("رمز عبور",password,{password=it},password=true,latin=true,showLabel=false,enabled=!s.posting,onDone=submit,error=s.fieldErrors["password"],onEdited={vm.inputEdited("password")},firstError=s.firstField("password"),attempt=s.validationAttempt)
         }
@@ -91,7 +91,17 @@ import org.json.JSONObject
         if(s.posting||!s.initialized){CircularProgressIndicator(Modifier.size(18.dp),strokeWidth=2.dp,color=MaterialTheme.colorScheme.onPrimary);Spacer(Modifier.width(8.dp))}
         Text(if(mode=="otp")"دریافت کد ورود"else if(mode=="register")"عضویت و شروع مشاوره"else "ورود به حساب کاربری",fontWeight=FontWeight.Bold)
        }
-       // Google sign-in is intentionally absent until a native server contract is available.
+       /**
+        * ورود با گوگل — قبلاً این دکمه عمداً نبود چون قرارداد بومی وجود نداشت.
+        * اکنون قرارداد بومی هست: nonce دستگاه + برگهٔ دست‌دهی کوتاه‌عمر
+        * (POST /api/v1/auth/google/handoff). جریان در مرورگر امن انجام می‌شود.
+        */
+       if(s.config.optBoolean("google_sign_in_enabled",false)) {
+        SoftButton(onClick={vm.startGoogleSignIn()},enabled=!s.posting,modifier=Modifier.fillMaxWidth()){Text("ورود با حساب گوگل")}
+        Text("ورود با گوگل در مرورگر امن گوشی انجام می‌شود و پس از تأیید، خودکار به اپ برمی‌گردید.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       }
+       // فرم تماس عمومی سایت: برای کسی که هنوز حساب ندارد هم باز است.
+       TextButton(onClick={vm.openDialog("contact","تماس با پشتیبانی")},enabled=!s.posting){Text("پیام به پشتیبانی (بدون حساب)",color=Copper,style=MaterialTheme.typography.labelMedium)}
       }
       Text(buildAnnotatedString {
        append("ورود شما به معنای پذیرش ")

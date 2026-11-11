@@ -41,6 +41,21 @@ object ApiRoutes {
  Regex("/billing/payments/[A-Za-z0-9_%.-]+").matches(p) -> method in setOf("GET")
  Regex("/tickets").matches(p) -> method in setOf("GET", "POST")
  Regex("/tickets/[0-9]+/reply").matches(p) -> method in setOf("POST")
+ // ── دور پنجم: همان قابلیت‌هایی که وب‌سایت داشت و اپ راهی به آن‌ها نداشت ──
+ Regex("/laws/[0-9]+/relations").matches(p) -> method in setOf("GET")
+ Regex("/billing/my-billing").matches(p) -> method in setOf("GET")
+ Regex("/billing/cancel").matches(p) -> method in setOf("POST")
+ Regex("/billing/resume").matches(p) -> method in setOf("POST")
+ Regex("/auth/password/forgot").matches(p) -> method in setOf("POST")
+ Regex("/auth/password/reset").matches(p) -> method in setOf("POST")
+ Regex("/auth/email/send-verification").matches(p) -> method in setOf("POST")
+ Regex("/auth/email/verify").matches(p) -> method in setOf("POST")
+ Regex("/auth/contact").matches(p) -> method in setOf("POST")
+ Regex("/auth/google/handoff").matches(p) -> method in setOf("POST")
+ Regex("/auth/google/link").matches(p) -> method in setOf("POST")
+ Regex("/auth/google/link/send-otp").matches(p) -> method in setOf("POST")
+ Regex("/auth/identities").matches(p) -> method in setOf("GET")
+ Regex("/auth/identities/[a-z]+/unlink").matches(p) -> method in setOf("POST")
 else -> false
 }
 }

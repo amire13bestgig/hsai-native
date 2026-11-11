@@ -167,7 +167,9 @@ class MainActivity:ComponentActivity() {
    vm.state.filter{it.initialized}.first()
    if(vm.state.value.authenticated&&vm.state.value.entryComplete)vm.navigate(Screen.DEADLINES)else vm.loginRequired(Screen.DEADLINES)
   }
-  if(i?.data?.scheme=="hsai"&&i.data?.host=="payment")lifecycleScope.launch{vm.state.filter{it.initialized}.first();if(vm.state.value.authenticated&&vm.state.value.entryComplete)vm.verifyPayment()else vm.loginRequired(Screen.PLANS)}}
+  if(i?.data?.scheme=="hsai"&&i.data?.host=="payment")lifecycleScope.launch{vm.state.filter{it.initialized}.first();if(vm.state.value.authenticated&&vm.state.value.entryComplete)vm.verifyPayment()else vm.loginRequired(Screen.PLANS)}
+  // FIX(app-parity): بازگشت از «ورود با گوگل». برگهٔ دست‌دهی فقط با nonce همین دستگاه نقد می‌شود.
+  if(i?.data?.scheme=="hsai"&&i.data?.host=="auth"){val link=i.dataString.orEmpty();lifecycleScope.launch{vm.state.filter{it.initialized}.first();vm.completeGoogleSignIn(link)}}}
  override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);handleIntent(intent)}
  override fun onResume(){super.onResume();if(awaitingPayment){awaitingPayment=false;if(vm.state.value.entryComplete)vm.verifyPayment()else vm.loginRequired(Screen.PLANS)}}
  override fun onDestroy(){runCatching{network.unregisterNetworkCallback(networkCallback)};Speaker.shutdown();super.onDestroy()}

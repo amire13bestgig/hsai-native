@@ -1,0 +1,20 @@
+--- a/server/routes/v1.js
++++ b/server/routes/v1.js
+@@
+ import { runUnifiedChatTurn } from '../services/unifiedChatOrchestrator.js';
++import { freeQuotaSnapshot } from '../services/freeQuota.js';
+
+@@ POST /api/v1/chat  (شعبهٔ گفتگوی تازه: req.body.conversation_id خالی)
+       return ok(res, {
+         conversation_id: result.conversation.id,
+         message_id: result.assistant_message_id,
+         answer: result.answer,
+         quick_questions: result.verification?.quick_questions || [],
+         cited_articles: result.cited_articles,
+-        verification: result.verification,
+-        subscription: result.subscription
++        suggested_actions: result.suggested_actions || [],
++        verification: result.verification,
++        subscription: result.subscription,
++        free_quota: await freeQuotaSnapshot(req.user.id)
+       });

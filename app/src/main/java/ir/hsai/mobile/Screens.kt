@@ -229,25 +229,31 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
 @Composable fun MessageCard(m:ChatMessage,busy:Boolean,vm:AppViewModel,isLatest:Boolean=false) {
  val user=m.role=="user"
  val content:@Composable ColumnScope.()->Unit = {
-  Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(7.dp)){if(user)Icon(NativeIcons.PersonOutline,null,Modifier.size(18.dp),tint=SiteDesign.Brass300)else BrandEmblem(22.dp);Text(if(m.role=="user")"شما"else "حق‌سنج",style=MaterialTheme.typography.labelSmall,color=if(user)SiteDesign.Brass300 else MaterialTheme.colorScheme.primary)}
+  val v=m.verification
+  val mode=ApiContract.mode(v)
+  val hasDoc=m.document!=null
+  if(user) Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+   Icon(NativeIcons.PersonOutline,null,Modifier.size(18.dp),tint=SiteDesign.Brass300)
+   Text("شما",style=MaterialTheme.typography.labelSmall,color=SiteDesign.Brass300)
+  } else AssistantHeader(v?.str("mode").orEmpty(),showMode=!ApiContract.modeBadgeHidden(v,m.citations.size,hasDoc))
+
+  // همان ترتیب کارت‌های وب‌سایت: آرام‌سازی ابلاغیه → محاسبهٔ قانونی → ریسک قرارداد →
+  // خلاصهٔ خودمانی → بازنویسی ساده → متن پاسخ.
+  if(!user) {
+   ApiContract.sanaReassurance(v)?.let{SanaCalmingCard(it)}
+   ApiContract.calcCard(v)?.let{CalcSummaryCard(it)}
+   if(v?.str("scan_mode")=="contract_risk") ContractRiskCard(ApiContract.riskScore(v),ApiContract.redFlags(v))
+   val minimalTurn=(mode=="conversational"&&m.text.length<220&&!hasDoc)||m.questions.isNotEmpty()
+   if(!minimalTurn&&!hasDoc) ApiContract.quickSummary(v)?.let{CitizenQuickSummaryCard(it)}
+   m.simplified?.takeIf{it.isNotBlank()}?.let{SimplifiedBox(it)}
+  }
   if(m.image!=null)NativeImage(m.image)
   if(m.text.isNotBlank())SelectionContainer {NativeMarkdown(m.text)}
   else if(busy&&isLatest)Text("در حال دریافت پاسخ…",style=MaterialTheme.typography.bodySmall)
   else if(m.document==null&&m.questions.isEmpty()&&m.citations.isEmpty()&&m.verification==null&&m.suggestions.isEmpty())Text("پاسخ متنی در خروجی موجود نیست.",style=MaterialTheme.typography.bodySmall)
-  if(!user&&m.verification!=null) {
-   // FIX(verification): در v66 سرور وضعیت واقعی راستی‌آزمایی را برمی‌گرداند. نسخهٔ قبلی همیشه فقط
-   // «عدد اطمینان» را نشان می‌داد، پس پاسخِ تأییدنشده با امتیاز بالا هم بی‌خطر به‌نظر می‌رسید.
-   if(ApiContract.verificationFailed(m.verification)){
-    val issues=ApiContract.citationIssues(m.verification)
-    Surface(color=MaterialTheme.colorScheme.errorContainer,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
-     Text("این پاسخ تأیید نشد",fontWeight=FontWeight.Bold,style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onErrorContainer)
-     Text(if(issues.isEmpty())"استنادهای این پاسخ با متن مواد قانونی تطبیق داده نشد؛ پیش از هر اقدام، متن ماده را از منبع رسمی ببینید." else "استنادهای تأییدنشده: "+issues.joinToString("، "){it.str("reference",it.str("citation","نامشخص"))},style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onErrorContainer)
-    }}
-   }
-   val details=JSONObject();ApiContract.verificationKeys(m.verification).forEach{k->details.put(k,m.verification.opt(k))}
-   if(details.length()>0){var show by remember{mutableStateOf(false)};TextButton(onClick={show=!show}){Text(if(show)"بستن راهنمای عملی"else "راهنمای عملی و نتیجه بررسی")};if(show){Text("راستی‌آزمایی و امتیاز اطمینان، ادعای سرور است و تأیید مستقل حقوقی محسوب نمی‌شود.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error);DataResult(details)}}
-  }
-  if(!user&&isLatest&&m.questions.isNotEmpty())QuickQuestionForm(m.questions,busy,vm::answerQuestions)
+  if(!user&&v!=null) VerificationSection(v)
+  if(!user&&isLatest&&v!=null) ApiContract.citizenGuide(v)?.let{CitizenToolkit(it)}
+  if(!user&&isLatest&&m.questions.isNotEmpty())QuickQuestionsWidget(m.questions,busy,vm::answerQuestions)
   if(!user&&isLatest&&m.suggestions.isNotEmpty()) {
    var all by remember(m.suggestions){mutableStateOf(false)}
    Text("پیشنهادهای پاسخ",style=MaterialTheme.typography.labelMedium)
@@ -309,6 +315,16 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    TextButton(onClick={vm.openDialog("logout","خروج از حساب")},enabled=!s.posting){Text("خروج")}
   }
  }
+ // تأیید ایمیل: بدون آن، بازیابی رمز و اعلان‌های امنیتی کار نمی‌کند؛
+ // وب‌سایت هم همین را در تنظیمات حساب نشان می‌دهد.
+ if(!ApiContract.emailVerified(s.user)&&s.user.str("email").isNotBlank())Surface(
+  color=Palette.Amber50,shape=SiteShape.Card,border=BorderStroke(1.dp,Palette.Brass300)) {
+  Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+   Text("نشانی ایمیل شما هنوز تأیید نشده است",fontWeight=FontWeight.Black,color=Palette.Brass900,style=MaterialTheme.typography.titleSmall)
+   Text("برای بازیابی رمز عبور و اعلان‌های امنیتی، ایمیل «"+s.user.str("email")+"» را تأیید کنید.",style=MaterialTheme.typography.bodySmall,color=Palette.Brass900)
+   SoftButton(onClick={vm.sendEmailVerification()},enabled=!s.posting){Text("ارسال کد تأیید به ایمیل")}
+  }
+ }
  var tab by rememberSaveable{mutableStateOf("profile")}
  FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
   FilterChip(selected=tab=="profile",onClick={tab="profile"},label={Text("پروفایل و هویت")},colors=FilterChipDefaults.filterChipColors(containerColor=Soft.card(),labelColor=Soft.inkMuted(),selectedContainerColor=Palette.Brass100,selectedLabelColor=Palette.Brass900))
@@ -335,7 +351,15 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    Text("اشتراک شما",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
    Text(s.subscription.str("plan_name","اطلاعات اشتراک موجود نیست."))
    if(s.subscription.has("days_remaining"))Text("${fa(s.subscription.optInt("days_remaining"))} روز اعتبار باقی‌مانده")
+   if(ApiContract.autoRenewCancelled(s.subscription)) {
+    Text("تمدید خودکار لغو شده است؛ اشتراک تا پایان دورهٔ فعلی فعال می‌ماند.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
+    SoftButton(onClick={vm.resumeAutoRenew()},enabled=!s.posting){Text("بازگرداندن تمدید خودکار")}
+   } else if(s.subscription.length()>0) TextButton(onClick={vm.openDialog("cancelRenew","لغو تمدید خودکار")},enabled=!s.posting){Text("لغو تمدید خودکار")}
    SoftButton(onClick={vm.navigate(Screen.PLANS)}){Text("اشتراک و پرداخت‌ها")}
+   FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+    TextButton(onClick={vm.billingSummary()},enabled=!s.posting){Text("صورت‌حساب و تاریخچه")}
+    TextButton(onClick={vm.loadIdentities()},enabled=!s.posting){Text("روش‌های ورود")}
+   }
   }})
  } else GlassCard {
   Text("امنیت و رمز عبور",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
@@ -480,6 +504,68 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
  };Pager(s,vm)
 } }
 
+/** «قوانین و آراء مرتبط با این ماده» — همان محتوای modal وب‌سایت. */
+@Composable fun RelationsList(rows:List<JSONObject>,articleId:Long) {
+ if(rows.isEmpty()) {
+  EmptyState("رابطه‌ای ثبت نشده","برای این ماده در بانک قوانین، رابطهٔ حقوقی ثبت نشده است.")
+  return
+ }
+ Text("این ماده با موارد زیر مرتبط است؛ هر رابطه را جداگانه بررسی کنید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+ rows.forEach { row->
+  GlassCard {
+   Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+    Text(ApiContract.relationTitle(row,articleId),Modifier.weight(1f),fontWeight=FontWeight.Bold)
+    val type=ApiContract.relationType(row)
+    if(type.isNotBlank())Surface(color=Palette.Amber50,shape=SiteShape.Chip){Text(type,Modifier.padding(horizontal=9.dp,vertical=3.dp),color=Palette.Brass900,style=MaterialTheme.typography.labelSmall)}
+   }
+   val law=ApiContract.relationLaw(row,articleId)
+   if(law.isNotBlank())Text(law,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+   val note=ApiContract.relationNote(row)
+   if(note.isNotBlank())SelectionContainer{Text(note,style=MaterialTheme.typography.bodySmall)}
+   Text(if(ApiContract.relationOutgoing(row,articleId))"این ماده به آن ارجاع می‌دهد" else "آن ماده به این ماده ارجاع می‌دهد",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  }
+ }
+}
+
+/** صورت‌حساب و تمدید خودکار — معادل `/app/account` وب‌سایت. */
+@Composable fun BillingSummary(d:AppDialog,s:AppUiState,vm:AppViewModel) {
+ val sub=d.data.optJSONObject("active_subscription")
+ if(sub==null||sub.length()==0)Text("اشتراک فعالی ثبت نشده است.",style=MaterialTheme.typography.bodySmall)
+ else GlassCard {
+  Text(sub.str("plan_name","اشتراک فعلی"),fontWeight=FontWeight.Bold)
+  val ends=sub.str("ends_at",sub.str("expires_at"))
+  if(ends.isNotBlank())Text("پایان دوره: "+dateFa(ends),style=MaterialTheme.typography.bodySmall)
+  if(ApiContract.autoRenewCancelled(sub)) {
+   Text("تمدید خودکار لغو شده است.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
+   if(ApiContract.autoRenewReason(sub).isNotBlank())Text("دلیل ثبت‌شده: "+ApiContract.autoRenewReason(sub),style=MaterialTheme.typography.labelSmall)
+   SoftButton(onClick={vm.resumeAutoRenew()},enabled=!s.posting){Text("بازگرداندن تمدید خودکار")}
+  } else {
+   Text("تمدید خودکار فعال است.",style=MaterialTheme.typography.bodySmall)
+   TextButton(onClick={vm.openDialog("cancelRenew","لغو تمدید خودکار")},enabled=!s.posting){Text("لغو تمدید خودکار")}
+  }
+ }
+ val quota=d.data.optJSONObject("quota")
+ if(quota!=null&&quota.length()>0)DataResult(quota)
+ val history=d.data.objects("subscription_history")
+ if(history.isNotEmpty()) {
+  Text("تاریخچهٔ اشتراک",fontWeight=FontWeight.Bold)
+  history.take(6).forEach { h->
+   Text(h.str("plan_name","اشتراک")+" · "+dateFa(h.str("starts_at",h.str("created_at"))),style=MaterialTheme.typography.bodySmall)
+  }
+ }
+ val payments=d.data.objects("payments")
+ if(payments.isEmpty())Text("پرداختی ثبت نشده است.",style=MaterialTheme.typography.bodySmall)
+ else {
+  Text("پرداخت‌ها",fontWeight=FontWeight.Bold)
+  payments.take(8).forEach { p->
+   Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+    Text("${fa(p.optLong("amount_toman"))} تومان · ${p.str("status")}",Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
+    if(ApiContract.paymentAuthority(p).isNotBlank())TextButton(onClick={vm.verifyPayment(ApiContract.paymentAuthority(p))}){Text("استعلام")}
+   }
+  }
+ }
+}
+
 @Composable fun AppDialogs(s:AppUiState,vm:AppViewModel) {
  val d=s.dialog?:return
  androidx.compose.ui.window.Dialog(onDismissRequest=vm::closeDialog,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false,dismissOnBackPress=!s.posting,dismissOnClickOutside=!s.posting)) {
@@ -520,6 +606,92 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    "checkout"->{var code by rememberSaveable{mutableStateOf("")};Text(d.data.str("name"),fontWeight=FontWeight.Bold);Text("مبلغ اولیه: ${fa(d.data.optLong("price_toman"))} تومان");Field("کد تخفیف (اختیاری)",code,{code=it},error=s.fieldErrors["code"],enabled=!s.posting,onEdited={vm.inputEdited("code")},firstError=s.firstField("code"),attempt=s.validationAttempt);SoftButton(onClick={vm.validateDiscount(d.data.optLong("id"),code)},enabled=!s.posting){Text("بررسی کد تخفیف")};Text("با تأیید، سفارش ایجاد می‌شود و درگاه در مرورگر امن باز خواهد شد. بازگشت به اپ به معنی پرداخت موفق نیست؛ وضعیت از سرور استعلام می‌شود.",style=MaterialTheme.typography.bodySmall);Action("تأیید و ادامه به درگاه",s.posting){vm.checkout(d.data.optLong("id"),code)}}
    "payments"->{val payments=d.data.objects("items");if(payments.isEmpty())Text("پرداختی ثبت نشده است.");payments.forEach { p->DataResult(p);if(ApiContract.paymentAuthority(p).isNotBlank())TextButton(onClick={vm.verifyPayment(ApiContract.paymentAuthority(p))}){Text("استعلام این پرداخت")}}}
    "result"->{DataResult(d.data);Text("وضعیت مستقیماً از سرویس دریافت شده است.",style=MaterialTheme.typography.bodySmall);TextButton(onClick={vm.verifyPayment()}){Text("استعلام دوباره")}}
+   // ── دور پنجم: پنجره‌های همان قابلیت‌های وب‌سایت ──
+   "relations"->{RelationsList(d.data.objects("relations"),d.data.optLong("article_id"))}
+   "billing"->{BillingSummary(d,s,vm)}
+   "cancelRenew"->{
+    var reason by rememberSaveable{mutableStateOf("")}
+    Text("با لغو تمدید خودکار، اشتراک فعلی تا پایان دورهٔ پرداخت‌شده فعال می‌ماند و سهمیهٔ باقی‌مانده از بین نمی‌رود؛ فقط دورهٔ بعدی تمدید نمی‌شود.")
+    Field("دلیل لغو (اختیاری)",reason,{reason=it},multiline=true,enabled=!s.posting)
+    Action("لغو تمدید خودکار",s.posting){vm.cancelAutoRenew(reason)}
+   }
+   "emailVerify"->{
+    var code by remember{mutableStateOf("")}
+    Text(d.data.str("message","کد تأیید به ایمیل شما ارسال شد."))
+    Text(d.data.str("email"),fontWeight=FontWeight.Bold)
+    Field("کد تأیید ایمیل",code,{code=it},numeric=true,error=s.fieldErrors["email_code"],enabled=!s.posting,onEdited={vm.inputEdited("email_code")},firstError=s.firstField("email_code"),attempt=s.validationAttempt)
+    Action("تأیید ایمیل",s.posting){vm.verifyEmail(d.data.str("email"),code)}
+    TextButton(onClick={vm.closeDialog()},enabled=!s.posting){Text("بعداً انجام می‌دهم")}
+   }
+   "forgot"->{
+    var identifier by rememberSaveable{mutableStateOf("")}
+    Text("کد بازیابی به ایمیل یا پیامک حساب شما ارسال می‌شود. این کار در خود اپ انجام می‌شود و نیازی به مرورگر نیست.")
+    Field("ایمیل یا شماره موبایل",identifier,{identifier=it},error=s.fieldErrors["identifier"],enabled=!s.posting,onEdited={vm.inputEdited("identifier")},firstError=s.firstField("identifier"),attempt=s.validationAttempt)
+    Text("اگر سرور ارسال ایمیل را فعال نکرده باشد، برای شماره‌های ثبت‌شده کد پیامکی فرستاده می‌شود.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Action("ارسال کد بازیابی",s.posting){vm.requestPasswordReset(identifier,"auto")}
+   }
+   "resetPassword"->{
+    var code by remember{mutableStateOf("")}
+    var pass by remember{mutableStateOf("")}
+    var confirm by remember{mutableStateOf("")}
+    Text(d.data.str("message","کد بازیابی برای شما ارسال شد."))
+    Field("کد بازیابی",code,{code=it},numeric=true,error=s.fieldErrors["reset_code"],enabled=!s.posting,onEdited={vm.inputEdited("reset_code")},firstError=s.firstField("reset_code"),attempt=s.validationAttempt)
+    Field("رمز جدید (حداقل ۸ نویسه)",pass,{pass=it},password=true,error=s.fieldErrors["new_password"],enabled=!s.posting,onEdited={vm.inputEdited("new_password")},firstError=s.firstField("new_password"),attempt=s.validationAttempt)
+    Field("تکرار رمز جدید",confirm,{confirm=it},password=true,error=s.fieldErrors["confirm_password"],enabled=!s.posting,onEdited={vm.inputEdited("confirm_password")},firstError=s.firstField("confirm_password"),attempt=s.validationAttempt)
+    Text("رمز جدید روی این دستگاه ذخیره نمی‌شود؛ پس از تغییر، با رمز تازه وارد شوید.",style=MaterialTheme.typography.bodySmall)
+    Action("ثبت رمز جدید",s.posting){vm.resetPassword(d.data.str("identifier"),code,pass,confirm)}
+   }
+   "contact"->{
+    var name by rememberSaveable{mutableStateOf("")}
+    var reach by rememberSaveable{mutableStateOf("")}
+    var subject by rememberSaveable{mutableStateOf("")}
+    var body by rememberSaveable{mutableStateOf("")}
+    var category by rememberSaveable{mutableStateOf("پشتیبانی عمومی")}
+    Text("این پیام بدون نیاز به ورود ثبت می‌شود و کد پیگیری می‌گیرید.")
+    Field("نام و نام خانوادگی",name,{name=it},error=s.fieldErrors["full_name"],enabled=!s.posting,onEdited={vm.inputEdited("full_name")},firstError=s.firstField("full_name"),attempt=s.validationAttempt)
+    Field("ایمیل یا شماره موبایل",reach,{reach=it},error=s.fieldErrors["contact"],enabled=!s.posting,onEdited={vm.inputEdited("contact")},firstError=s.firstField("contact"),attempt=s.validationAttempt)
+    Choice("دستهٔ پیام",category,listOf("پشتیبانی عمومی" to "پشتیبانی عمومی","مالی و پرداخت" to "مالی و پرداخت","مشکل فنی" to "مشکل فنی","انتقاد و پیشنهاد" to "انتقاد و پیشنهاد"),enabled=!s.posting){category=it}
+    Field("موضوع",subject,{subject=it},error=s.fieldErrors["subject"],enabled=!s.posting,onEdited={vm.inputEdited("subject")},firstError=s.firstField("subject"),attempt=s.validationAttempt)
+    Field("متن پیام",body,{body=it},multiline=true,error=s.fieldErrors["message"],enabled=!s.posting,onEdited={vm.inputEdited("message")},firstError=s.firstField("message"),attempt=s.validationAttempt)
+    Text("رمز عبور، کد ورود و اطلاعات بانکی را در پیام ننویسید.",style=MaterialTheme.typography.bodySmall)
+    Action("ارسال پیام",s.posting){vm.sendContact(name,reach,category,subject,body)}
+   }
+   "identities"->{
+    var password by remember{mutableStateOf("")}
+    val google=ApiContract.hasGoogleIdentity(d.data)
+    Text("روش‌های ورود متصل به این حساب:",fontWeight=FontWeight.Bold)
+    if(ApiContract.identities(d.data).isEmpty())Text("هیچ روش ورود خارجی متصل نیست.",style=MaterialTheme.typography.bodySmall)
+    ApiContract.identities(d.data).forEach { item->
+     Text((if(item.str("provider")=="google")"گوگل" else item.str("provider"))+" — "+item.str("email",item.str("display_name","متصل")),style=MaterialTheme.typography.bodyMedium)
+    }
+    if(google) {
+     Text("برای قطع اتصال گوگل، در صورت داشتن رمز عبور آن را وارد کنید.",style=MaterialTheme.typography.bodySmall)
+     Field("رمز عبور حساب (در صورت وجود)",password,{password=it},password=true,enabled=!s.posting)
+     SoftButton(onClick={vm.unlinkGoogle(password)},enabled=!s.posting){Text("قطع اتصال گوگل")}
+    } else Text("اتصال گوگل انجام نشده است. برای اتصال از صفحهٔ ورود، «ورود با حساب گوگل» را بزنید.",style=MaterialTheme.typography.bodySmall)
+   }
+   "googleLink"->{
+    var password by remember{mutableStateOf("")}
+    var otpMode by rememberSaveable{mutableStateOf(false)}
+    var code by remember{mutableStateOf("")}
+    Text("این ایمیل گوگل ("+d.data.str("email")+") با یک حساب موجود حق‌سنج هم‌نام است. برای اتصال امن، مالکیت حساب را اثبات کنید.")
+    if(!otpMode) {
+     Field("رمز عبور حساب حق‌سنج",password,{password=it},password=true,error=s.fieldErrors["google_password"],enabled=!s.posting,onEdited={vm.inputEdited("google_password")},firstError=s.firstField("google_password"),attempt=s.validationAttempt)
+     Action("اتصال با رمز عبور",s.posting){vm.googleLinkWithPassword(d.data.str("link_token"),password)}
+     TextButton(onClick={vm.googleLinkSendOtp(d.data.str("link_token"))},enabled=!s.posting){Text("رمز ندارم؛ کد تأیید بفرست")}
+    } else Text("منتظر کد تأیید هستید…",style=MaterialTheme.typography.bodySmall)
+   }
+   "googleLinkOtp"->{
+    var code by remember{mutableStateOf("")}
+    Text(d.data.str("message","کد تأیید برای حساب شما ارسال شد."))
+    Field("کد تأیید",code,{code=it},numeric=true,error=s.fieldErrors["google_otp"],enabled=!s.posting,onEdited={vm.inputEdited("google_otp")},firstError=s.firstField("google_otp"),attempt=s.validationAttempt)
+    Action("اتصال حساب گوگل",s.posting){vm.googleLinkWithOtp(d.data.str("link_token"),code)}
+   }
+   "info"->{
+    Text(d.data.str("message"))
+    if(d.data.str("tracking_code").isNotBlank())Text("کد پیگیری: "+d.data.str("tracking_code"),fontWeight=FontWeight.Bold)
+    TextButton(onClick={vm.closeDialog()}){Text("بستن")}
+   }
   }
   ErrorNotice(s)
  }}
@@ -560,24 +732,87 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
  }
 }
 
-@Composable fun QuickQuestionForm(questions:List<JSONObject>,busy:Boolean,onSubmit:(String)->Unit) {
+/**
+ * پرسش‌های شفاف‌سازی هنگام پاسخ — معادل `QuickQuestionsWidget` وب‌سایت.
+ *
+ * سایت سه رفتار دارد که نسخهٔ قبلی اپ نداشت:
+ *   ۱) اگر فقط **یک** پرسش باشد، کلیک روی گزینه بلافاصله پاسخ را می‌فرستد (بدون دکمهٔ ثبت)؛
+ *   ۲) پرسش‌ها شماره می‌خورند و گزینهٔ انتخاب‌شده سرمه‌ای/برنجی می‌شود؛
+ *   ۳) کادر «توضیح تکمیلی» همیشه دیده می‌شود، نه پشت یک دکمه.
+ * خروجی هم عیناً مثل سایت با « | » به هم می‌چسبد؛ سرور همین قالب را می‌شناسد
+ * (unifiedChatOrchestrator: pendingGenericPicker / split('|')).
+ */
+@Composable fun QuickQuestionsWidget(questions:List<JSONObject>,busy:Boolean,onSubmit:(String)->Unit) {
  val identity=questions.joinToString{it.toString()}
  var selected by remember(identity){mutableStateOf<Map<Int,String>>(emptyMap())}
- var note by rememberSaveable(identity){mutableStateOf("")}
- var showNote by remember(identity){mutableStateOf(false)}
- Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-  Text("برای دقیق‌تر شدن پاسخ",fontWeight=FontWeight.Bold)
-  questions.forEachIndexed { index,q->
-   Text(q.str("question",q.str("label")),style=MaterialTheme.typography.labelLarge)
-   val options=q.optJSONArray("options")?:JSONArray()
-   FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {(0 until options.length()).forEach { i->val option=options.optString(i)
-    FilterChip(selected=selected[index]==option,enabled=!busy,onClick={selected=selected+(index to option)},label={Text(option)},colors=FilterChipDefaults.filterChipColors(containerColor=Soft.card(),labelColor=Soft.inkMuted(),selectedContainerColor=Palette.Brass100,selectedLabelColor=Palette.Brass900))
-   }}
+ var note by remember(identity){mutableStateOf("")}
+ val single=questions.size==1
+ fun submit(parts:List<String>) { if(parts.isNotEmpty())onSubmit(parts.joinToString(" | ")) }
+ if(questions.isEmpty())return
+
+ Surface(shape=SiteShape.Xxl,color=Soft.well(),border=BorderStroke(1.dp,Soft.border())) {
+  Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+   questions.forEachIndexed { index,q->
+    val label=q.str("question",q.str("label"))
+    Column(verticalArrangement=Arrangement.spacedBy(7.dp)) {
+     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+      if(!single) Surface(color=Palette.Navy950,shape=SiteShape.Chip) {
+       Text(fa(index+1),Modifier.width(20.dp).padding(vertical=2.dp),style=MaterialTheme.typography.labelSmall,
+        color=Palette.Brass300,textAlign=TextAlign.Center,fontWeight=FontWeight.Bold)
+      }
+      Text(label,Modifier.weight(1f),style=MaterialTheme.typography.labelLarge,
+       fontWeight=FontWeight.ExtraBold,color=Soft.ink())
+     }
+     val options=(q.optJSONArray("options")?.let{a->(0 until a.length()).mapNotNull{a.optString(it).takeIf(String::isNotBlank)}}?:emptyList())
+     FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+      options.forEach { option->
+       val picked=selected[index]==option
+       Surface(onClick={
+         if(!busy){
+          // یک پرسش تنها = پاسخ فوری با یک کلیک؛ دقیقاً مثل سایت.
+          if(single){selected=selected+(index to option);submit(listOf((label+" "+option).trim()))}
+          else selected=selected+(index to option)
+         }
+        },enabled=!busy,shape=SiteShape.Xl,
+        color=if(picked)Palette.Navy950 else Soft.card(),
+        contentColor=if(picked)Palette.Brass300 else Palette.Slate700,
+        border=BorderStroke(1.dp,if(picked)Palette.Navy950 else Soft.border())) {
+        Row(Modifier.padding(horizontal=12.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically,
+         horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+         if(picked)Icon(NativeIcons.Check,null,Modifier.size(14.dp),tint=Palette.Brass300)
+         Text(option,style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold,
+          color=if(picked)Palette.Brass300 else Soft.ink())
+        }
+       }
+      }
+     }
+    }
+   }
+   OutlinedTextField(value=note,onValueChange={note=it},enabled=!busy,singleLine=true,
+    placeholder={Text(if(single)"یا پاسخ دلخواه خود را بنویسید..."else "توضیح تکمیلی اختیاری...",style=MaterialTheme.typography.bodySmall)},
+    modifier=Modifier.fillMaxWidth(),shape=SiteShape.Xl,
+    colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=Soft.border(),focusedBorderColor=Palette.Brass400,
+     unfocusedContainerColor=Soft.card(),focusedContainerColor=Soft.card(),cursorColor=Palette.Brass500,
+     unfocusedTextColor=Soft.ink(),focusedTextColor=Soft.ink()))
+   // برای پرسش تنها، دکمه فقط وقتی معنا دارد که کاربر متن دلخواه نوشته باشد (مثل سایت).
+   if(!single||note.isNotBlank()) {
+    Button(onClick={
+      val parts=questions.mapIndexedNotNull { index,q->selected[index]?.let{q.str("question",q.str("label"))+" "+it} }.toMutableList()
+      if(note.isNotBlank())parts.add(note.trim())
+      submit(parts)
+     },enabled=!busy&&(selected.isNotEmpty()||note.isNotBlank()),shape=SiteShape.Xl,
+     colors=ButtonDefaults.buttonColors(containerColor=Palette.Navy950,contentColor=Palette.Brass300),
+     modifier=Modifier.fillMaxWidth().heightIn(min=44.dp)) {
+      Text("ثبت پاسخ",fontWeight=FontWeight.ExtraBold)
+      Spacer(Modifier.width(6.dp))
+      Icon(NativeIcons.Send,null,Modifier.size(15.dp))
+    }
+   }
   }
-  if(showNote||note.isNotBlank())Field("توضیح تکمیلی (اختیاری)",note,{note=it},multiline=true)else TextButton(onClick={showNote=true}){Text("افزودن توضیح اختیاری")}
-  Button(enabled=!busy&&(selected.isNotEmpty()||note.isNotBlank()),onClick={
-   val parts=questions.mapIndexedNotNull { index,q->selected[index]?.let{q.str("question",q.str("label"))+" "+it} }.toMutableList()
-   if(note.isNotBlank())parts.add(note.trim());onSubmit(parts.joinToString(" | "))
-  }){Text("ارسال پاسخ پرسش‌ها")}
  }
+}
+
+/** نام قدیمی، برای سازگاری با فراخوانی‌های آزمون. */
+@Composable fun QuickQuestionForm(questions:List<JSONObject>,busy:Boolean,onSubmit:(String)->Unit) {
+ QuickQuestionsWidget(questions,busy,onSubmit)
 }

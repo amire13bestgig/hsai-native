@@ -16,7 +16,7 @@ enum class Screen(val title:String) {
 /** متن مرحلهٔ آغازین، واژه‌به‌واژه از ChatAgentPage.jsx (setStreamStage). */
 const val CHAT_STAGE_OPENING: String = "در حال اتصال به موتور حقوقی و تشخیص مرجع صالح..."
 enum class ChatStatus { IDLE, SENDING, RECEIVING, COMPLETED, STOPPED, FAILED, UNKNOWN }
-data class ChatMessage(val role:String,val text:String,val id:Long?=null,val citations:List<JSONObject> = emptyList(),val image:String?=null,val document:JSONObject?=null,val feedback:String="",val verification:JSONObject?=null,val questions:List<JSONObject> = emptyList(),val suggestions:List<String> = emptyList())
+data class ChatMessage(val role:String,val text:String,val id:Long?=null,val citations:List<JSONObject> = emptyList(),val image:String?=null,val document:JSONObject?=null,val feedback:String="",val verification:JSONObject?=null,val questions:List<JSONObject> = emptyList(),val suggestions:List<String> = emptyList(),val simplified:String?=null)
 data class DocumentDraft(val id:Long,val title:String,val content:String)
 data class AppDialog(val kind:String,val title:String,val data:JSONObject=JSONObject())
 data class AppUiState(
@@ -56,6 +56,11 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
  private var connectionJob:Job?=null
  private var reminderDismissed=false
  private var otpSentAt=0L
+ /**
+  * nonce جریان «ورود با گوگل». عمداً فقط در حافظهٔ همین فرایند است: اگر اپ
+  * kill شود، برگهٔ دست‌دهی بی‌مصرف می‌شود و کاربر پیام روشن می‌گیرد.
+  */
+ private var googleNonce:String=""
  private fun change(block:(AppUiState)->AppUiState) { mutable.update(block) }
  fun notice(text:String) { events.tryEmit(AppEffect.Toast(text)) }
  init {
@@ -287,7 +292,11 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   }
  }
  fun feedback(id:Long,value:String) { post { request("/messages/$id/feedback","POST",JSONObject().put("feedback",value));change { it.copy(messages=it.messages.map { m->if(m.id==id)m.copy(feedback=value)else m }) };notice("بازخورد ثبت شد.") } }
- fun simplify(id:Long) { val conv=state.value.conversationId;post { val d=request("/messages/$id/simplify","POST",JSONObject());val text=ApiContract.simplifiedText(d);if(conv==state.value.conversationId)change { it.copy(messages=it.messages+ChatMessage("assistant",text)) } } }
+ /**
+  * «ساده‌تر بگو» — وب‌سایت نتیجه را در همان پیام و در جعبهٔ سبز `simplified_content` نشان می‌دهد،
+  * نه به‌عنوان یک پاسخ تازه از دستیار. اپ هم همان کار را می‌کند تا تاریخچه شلوغ نشود.
+  */
+ fun simplify(id:Long) { val conv=state.value.conversationId;post { val d=request("/messages/$id/simplify","POST",JSONObject());val text=ApiContract.simplifiedText(d);if(conv==state.value.conversationId)change { it.copy(messages=it.messages.map { m->if(m.id==id)m.copy(simplified=text)else m }) } } }
  fun openConversation(id:Long) { if(!state.value.authenticated){loginRequired(Screen.HISTORY);return};if(state.value.posting)return;navigate(Screen.CHAT);val g=generation;post { val d=request("/consultations/$id");if(g!=generation)return@post;change { it.copy(conversationId=id,messages=d.objects("messages").filter { m->m.str("role") in listOf("user","assistant") }.map { m->if(m.str("role")=="assistant")ApiContract.chatMessage(m)else ChatMessage("user",m.str("content")) },failedChat=null,chatStatus=ChatStatus.IDLE) } } }
  fun refresh(page:Int=1) {
   val s=state.value;if(!s.initialized)return
@@ -387,5 +396,220 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
  fun paymentHistory() { post { val d=request("/billing/payments");openDialog("payments","تاریخچه پرداخت‌ها",d) } }
  val pendingPayment:Boolean get()=vault.authority.isNotBlank()
  private fun encode(s:String)=URLEncoder.encode(s,"UTF-8").replace("+","%20")
+ // ═══════════════════════════════════════════════════════════════════════════
+ // دور پنجم — بستن شکاف‌های اپ نسبت به وب‌سایت
+ // هر تابع، دقیقاً همان مسیر API را صدا می‌زند که سایت صدا می‌زند.
+ // ═══════════════════════════════════════════════════════════════════════════
+
+ private fun applySubscription(data:JSONObject) {
+  val sub=data.optJSONObject("subscription")
+  if(sub!=null&&sub.length()>0)change{it.copy(subscription=sub)}
+ }
+
+ /** «قوانین و آراء مرتبط با این ماده» — معادل modal وب‌سایت روی هر ماده. */
+ fun articleRelations(articleId:Long) {
+  if(state.value.posting)return
+  if(articleId<=0){notice("شناسهٔ ماده معتبر نیست.");return}
+  val g=generation
+  post {
+   val d=request("/laws/$articleId/relations",authenticated=false)
+   if(g!=generation)return@post
+   val title=d.optJSONObject("article")?.str("title").orEmpty()
+   openDialog("relations","قوانین و آراء مرتبط",JSONObject()
+    .put("article_id",articleId).put("article_title",title)
+    .put("relations",d.optJSONArray("relations")?:org.json.JSONArray()))
+  }
+ }
+
+ /** صورت‌حساب، سهمیه و تاریخچهٔ اشتراک — `/billing/my-billing`. */
+ fun billingSummary() {
+  if(!state.value.authenticated){loginRequired(Screen.ACCOUNT);return}
+  post {
+   val d=request("/billing/my-billing")
+   val billing=ApiContract.billing(d)
+   val sub=billing.optJSONObject("active_subscription")
+   if(sub!=null&&sub.length()>0)change{it.copy(subscription=sub)}
+   openDialog("billing","صورت‌حساب و تمدید خودکار",billing)
+  }
+ }
+
+ /** لغو تمدید خودکار در پایان دوره (اشتراک فعلی تا آخر دوره فعال می‌ماند). */
+ fun cancelAutoRenew(reason:String) {
+  post {
+   val d=request("/billing/cancel","POST",JSONObject().put("reason",reason.trim().take(300)))
+   applySubscription(d);change{it.copy(dialog=null)}
+   notice("تمدید خودکار لغو شد؛ اشتراک فعلی تا پایان دوره فعال می‌ماند.")
+  }
+ }
+
+ /** بازگرداندن تمدید خودکار. */
+ fun resumeAutoRenew() {
+  post {
+   val d=request("/billing/resume","POST",JSONObject())
+   applySubscription(d);change{it.copy(dialog=null)}
+   notice("تمدید خودکار دوباره فعال شد.")
+  }
+ }
+
+ /** ارسال کد تأیید به ایمیل ثبت‌شدهٔ همین حساب. */
+ fun sendEmailVerification() {
+  post {
+   val email=state.value.user.str("email")
+   validateFields("email" to {
+    require(email.isNotBlank()){"اول نشانی ایمیل را در پروفایل ثبت و ذخیره کنید."}
+    require(android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){"ایمیل پروفایل معتبر نیست."}
+   })
+   val d=request("/auth/email/send-verification","POST",JSONObject().put("email",email),false)
+   if(d.optBoolean("already_verified",false)) {
+    change{it.copy(user=JSONObject(it.user.toString()).put("email_verified",true),dialog=null)}
+    notice("این ایمیل قبلاً تأیید شده است.");return@post
+   }
+   openDialog("emailVerify","تأیید نشانی ایمیل",JSONObject()
+    .put("email",email).put("message",d.str("message","کد تأیید به ایمیل شما ارسال شد.")))
+  }
+ }
+
+ /** تأیید ایمیل با کد ۶ رقمی. */
+ fun verifyEmail(email:String,code:String) {
+  post {
+   val c=Validation.digits(code)
+   validateFields("email_code" to {require(Regex("[0-9]{4,8}").matches(c)){"کد تأیید ایمیل را وارد کنید."}})
+   val d=request("/auth/email/verify","POST",JSONObject().put("email",email).put("code",c),false)
+   change{it.copy(dialog=null,user=JSONObject(it.user.toString()).put("email_verified",true))}
+   notice(d.str("message","ایمیل شما تأیید شد."))
+  }
+ }
+
+ /**
+  * بازیابی رمز — بومی، بدون فرستادن کاربر به مرورگر.
+  * کانال ایمیل یا پیامک را خود سرور تعیین می‌کند و در پاسخ برمی‌گرداند.
+  */
+ fun requestPasswordReset(identifier:String,channel:String) {
+  post {
+   val id=identifier.trim()
+   validateFields("identifier" to {
+    require(id.isNotBlank()){"ایمیل یا شماره موبایل را وارد کنید."}
+    if('@' in id)require(android.util.Patterns.EMAIL_ADDRESS.matcher(id).matches()){"ایمیل معتبر وارد کنید."}
+    else {Validation.phone(id);Unit}
+   })
+   val normalized=if('@' in id)id else Validation.phone(id)
+   val d=request("/auth/password/forgot","POST",JSONObject().put("identifier",normalized).put("channel",channel),false)
+   openDialog("resetPassword","تعیین رمز عبور جدید",JSONObject()
+    .put("identifier",normalized).put("channel",d.str("channel",channel))
+    .put("message",d.str("message","اگر این مشخصات در سامانه ثبت شده باشد، کد بازیابی ارسال شد.")))
+  }
+ }
+
+ /** تعیین رمز جدید با کد بازیابی (حداقل ۸ نویسه — قاعدهٔ سرور). */
+ fun resetPassword(identifier:String,code:String,password:String,confirm:String) {
+  post {
+   validateFields(
+    "reset_code" to {require(Regex("[0-9]{4,8}").matches(Validation.digits(code))){"کد بازیابی را وارد کنید."}},
+    "new_password" to {require(password.length>=8){"رمز جدید باید حداقل ۸ نویسه باشد."}},
+    "confirm_password" to {require(password==confirm){"تکرار رمز یکسان نیست."}})
+   val d=request("/auth/password/reset","POST",JSONObject()
+    .put("target",identifier).put("code",Validation.digits(code)).put("new_password",password),false)
+   change{it.copy(dialog=null)}
+   notice(d.str("message","رمز عبور تغییر کرد؛ با رمز جدید وارد شوید."))
+  }
+ }
+
+ /** فرم تماس عمومی — بدون نیاز به ورود (همان مسیر سایت). */
+ fun sendContact(fullName:String,contact:String,category:String,subject:String,message:String) {
+  post {
+   validateFields(
+    "full_name" to {require(fullName.trim().length>=2){"نام را کامل بنویسید."}},
+    "contact" to {require(contact.trim().isNotBlank()){"راه ارتباطی (ایمیل یا موبایل) را وارد کنید."}},
+    "subject" to {require(subject.trim().length>=3){"موضوع پیام را بنویسید."}},
+    "message" to {require(message.trim().length>=5){"متن پیام را کامل‌تر بنویسید."}})
+   val d=request("/auth/contact","POST",JSONObject()
+    .put("full_name",fullName.trim()).put("contact",contact.trim())
+    .put("category",category).put("subject",subject.trim()).put("message",message.trim()),false)
+   val tracking=ApiContract.contactTracking(d)
+   change{it.copy(dialog=null)}
+   openDialog("info","پیام شما ثبت شد",JSONObject()
+    .put("message",d.str("message","پیام شما برای تیم پشتیبانی ثبت شد."))
+    .put("tracking_code",tracking))
+  }
+ }
+
+ /**
+  * ورود با گوگل، جریان بومی بدون SDK گوگل:
+  * اپ nonce می‌سازد → مرورگر امن را به /api/auth/google/start می‌برد →
+  * سرور در پایان به hsai://auth/google?handoff=…&nonce=… برمی‌گردد →
+  * completeGoogleSignIn برگه را به نشست تبدیل می‌کند.
+  */
+ fun startGoogleSignIn() {
+  if(state.value.posting)return
+  if(!state.value.config.optBoolean("google_sign_in_enabled",false)){notice("ورود با گوگل روی سرور فعال نیست.");return}
+  if(state.value.authenticated){notice("برای ورود با حساب دیگر، اول از حساب فعلی خارج شوید.");return}
+  val nonce=ApiContract.newHandoffNonce()
+  googleNonce=nonce
+  events.tryEmit(AppEffect.OpenUrl(ApiContract.googleStartUrl(nonce)))
+  notice("در مرورگر با حساب گوگل وارد شوید؛ پس از تأیید، خودکار به اپ برمی‌گردید.")
+ }
+
+ /** پردازش پیوند بازگشتی hsai://auth/google (از MainActivity). */
+ fun completeGoogleSignIn(rawLink:String) {
+  val link=ApiContract.parseHandoffLink(rawLink)
+  if(link==null){notice("پیوند بازگشتی ورود معتبر نیست.");return}
+  if(link.error=="link_required") {
+   openDialog("googleLink","اتصال گوگل به حساب موجود",JSONObject()
+    .put("link_token",link.linkToken).put("email",link.email))
+   return
+  }
+  if(link.error.isNotBlank()){notice(link.error);return}
+  val expected=googleNonce
+  if(expected.isBlank()||link.nonce!=expected) {
+   notice("این پاسخ ورود برای این دستگاه صادر نشده یا منقضی شده است؛ دوباره تلاش کنید.");return
+  }
+  if(!ApiContract.handoffTokenShapeOk(link.handoff)){notice("برگهٔ ورود معتبر نیست؛ دوباره تلاش کنید.");return}
+  val nonce=expected
+  post {
+   val d=request("/auth/google/handoff","POST",JSONObject().put("handoff",link.handoff).put("nonce",nonce),false)
+   googleNonce="";acceptAuth(d)
+  }
+ }
+
+ /** اتصال گوگل به حساب موجود با اثبات رمز عبور. */
+ fun googleLinkWithPassword(linkToken:String,password:String) {
+  post {
+   validateFields("google_password" to {require(password.isNotBlank()){"رمز حساب حق‌سنج را وارد کنید."}})
+   val d=request("/auth/google/link","POST",JSONObject().put("link_token",linkToken).put("password",password),false)
+   googleNonce="";acceptAuth(d)
+  }
+ }
+
+ /** اتصال گوگل با کد یک‌بارمصرف به ایمیل/موبایل همان حساب. */
+ fun googleLinkSendOtp(linkToken:String) {
+  post {
+   val d=request("/auth/google/link/send-otp","POST",JSONObject().put("link_token",linkToken),false)
+   openDialog("googleLinkOtp","تأیید مالکیت حساب",JSONObject()
+    .put("link_token",linkToken).put("message",d.str("message","کد تأیید برای حساب شما ارسال شد.")))
+  }
+ }
+
+ fun googleLinkWithOtp(linkToken:String,code:String) {
+  post {
+   validateFields("google_otp" to {require(Regex("[0-9]{4,8}").matches(Validation.digits(code))){"کد تأیید را وارد کنید."}})
+   val d=request("/auth/google/link","POST",JSONObject().put("link_token",linkToken).put("otp_code",Validation.digits(code)),false)
+   googleNonce="";acceptAuth(d)
+  }
+ }
+
+ /** روش‌های ورود متصل به حساب (گوگل) — `GET /auth/identities`. */
+ fun loadIdentities() {
+  post { openDialog("identities","روش‌های ورود به حساب",request("/auth/identities")) }
+ }
+
+ /** قطع اتصال گوگل؛ سرور اگر تنها روش ورود باشد اجازه نمی‌دهد و پیام فارسی می‌دهد. */
+ fun unlinkGoogle(password:String) {
+  post {
+   request("/auth/identities/google/unlink","POST",JSONObject().put("password",password))
+   openDialog("identities","روش‌های ورود به حساب",request("/auth/identities"))
+   notice("اتصال حساب گوگل قطع شد.")
+  }
+ }
+
  companion object { val privateScreens=setOf(Screen.HISTORY,Screen.DOCUMENTS,Screen.SCANNER,Screen.DEADLINES,Screen.TICKETS) }
 }

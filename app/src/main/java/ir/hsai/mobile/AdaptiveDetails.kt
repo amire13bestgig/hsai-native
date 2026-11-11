@@ -65,5 +65,5 @@ DocumentPaper(d.data.str("content","متن سند موجود نیست."));Text("
  }
 }
 @Composable fun ColumnScope.ArticleDetailContent(d:AppDialog,vm:AppViewModel) {
-SelectionContainer{Text(d.data.str("official_text"))};if(d.data.str("plain_explanation").isNotBlank())Text(d.data.str("plain_explanation"));if(d.data.has("practical_tips"))DataResult(JSONObject().put("practical_tips",d.data.opt("practical_tips")));TextButton(onClick={vm.copy(d.data.str("official_text"))}){Text("کپی متن قانون")};SoftButton(onClick={vm.askAboutArticle(d.data)}){Text("پرسش درباره این ماده")}
+SelectionContainer{Text(d.data.str("official_text"))};if(d.data.str("plain_explanation").isNotBlank())Text(d.data.str("plain_explanation"));if(d.data.has("practical_tips"))DataResult(JSONObject().put("practical_tips",d.data.opt("practical_tips")));TextButton(onClick={vm.copy(d.data.str("official_text"))}){Text("کپی متن قانون")};SoftButton(onClick={vm.askAboutArticle(d.data)}){Text("پرسش درباره این ماده")};if(d.data.optLong("id")>0)SoftButton(onClick={vm.articleRelations(d.data.optLong("id"))}){Text("قوانین و آراء مرتبط")}
 }

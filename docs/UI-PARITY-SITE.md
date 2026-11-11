@@ -130,3 +130,14 @@ bash    verify/typecheck.sh   # ۰ خطای نوع روی کل ماژول + صح
 جزئیات منطق گفتگو: `docs/CHAT-PARITY-SITE.md`.
 
 شاهد این دور: `verify/typecheck.sh` → ok (۰ خطای نوع) · `verify/tokens.py` → ۳۹/۳۹ · `verify/run.sh` → pass=۲۶ fail=۰.
+
+---
+
+## ۸) دور پنجم — هوشمندی‌های پاسخ
+
+همهٔ کارت‌هایی که سایت هنگام پاسخ‌دادن نشان می‌دهد (شفاف‌سازی، محاسبهٔ قانونی، آرام‌سازی ابلاغیه،
+خلاصهٔ خودمانی، جعبه‌ابزار عملی، ریسک قرارداد، برچسب حالت، راستی‌آزمایی، بازنویسی ساده) در اپ
+با کامپوزبل‌های بومی `IntelligenceCards.kt` بازسازی شدند. تفصیل، فیلدهای API و شاهد:
+`docs/ANSWER-INTELLIGENCE-PARITY.md`.
+
+بررسی‌ها: `verify/run.sh` → **pass=۵۰ fail=۰** · `verify/typecheck.sh` → ۰ خطای نوع · `verify/tokens.py` → ۳۹/۳۹.
