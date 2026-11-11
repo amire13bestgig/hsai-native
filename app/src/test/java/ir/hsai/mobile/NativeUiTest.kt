@@ -291,11 +291,13 @@ data: {"answer":"متن پاسخ","conversation_id":42,"message_id":77,"subscrip
  }
 
  @Test fun auditLatestAssistantQuestionsAreNativeAndSelectable() {
-  ready();val question=JSONObject().put("question","آیا قرارداد کتبی دارید؟").put("options",org.json.JSONArray().put("بله دارم").put("خیر ندارم"))
-  state(fixture(Screen.CHAT).copy(messages=listOf(ChatMessage("assistant","برای ادامه پاسخ بدهید",questions=listOf(question)))))
+  ready()
+  val q1=JSONObject().put("question","آیا قرارداد کتبی دارید؟").put("options",org.json.JSONArray().put("بله دارم").put("خیر ندارم"))
+  val q2=JSONObject().put("question","مبلغ قرارداد چقدر است؟").put("options",org.json.JSONArray().put("زیر صد میلیون").put("بالای صد میلیون"))
+  state(fixture(Screen.CHAT).copy(messages=listOf(ChatMessage("assistant","برای ادامه پاسخ بدهید",questions=listOf(q1,q2)))))
   compose.onNodeWithText("آیا قرارداد کتبی دارید؟").assertExists()
   compose.onNodeWithText("بله دارم").performScrollTo().performClick()
-  compose.onNodeWithText("ارسال پاسخ پرسش‌ها").assertIsEnabled()
+  compose.onNodeWithText("ثبت پاسخ").assertIsEnabled()
   assertEquals(1,vm.state.value.messages.size)
  }
 
