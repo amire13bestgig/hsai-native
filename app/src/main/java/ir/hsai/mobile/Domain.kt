@@ -19,6 +19,10 @@ Calculator("arbitration_fee","حق‌الزحمه داوری",listOf(FormField("
 Calculator("notary_tariff","تعرفه دفتر اسناد رسمی",listOf(FormField("deed_value_toman","ارزش معامله یا موضوع سند (تومان)"),FormField("deed_kind","نوع سند رسمی",listOf("sale" to "بیع ملک یا خودرو","lease" to "اجاره‌نامه","agency" to "وکالت‌نامه","settlement" to "صلح‌نامه"),false))),
 Calculator("office_services_fee","خدمات الکترونیک قضایی",listOf(FormField("services","خدمات مورد نیاز",listOf("affidavit" to "ثبت و ارسال اظهارنامه","petition" to "ثبت دادخواست و شکواییه","clearance" to "گواهی عدم سوءپیشینه","notice" to "ابلاغ الکترونیک و اخطار","certified_copy" to "گواهی امضا و تصدیق اسناد"),false,false,true),FormField("copies","تعداد نسخه"))),
 )
+ /** ماشین‌حساب با شناسه؛ null اگر شناسه ناشناخته باشد (بدون پرتاب استثنا). */
+ fun calculatorOrNull(id:String):Calculator? = calculators.firstOrNull { it.id==id }
+ /** هرگز null نیست: اگر شناسه ناشناخته بود، اولین ماشین‌حساب برمی‌گردد تا صفحه کرش نکند. */
+ fun calculatorOrFirst(id:String):Calculator = calculatorOrNull(id) ?: calculators.first()
  val labels=mapOf(
 "expert_kind" to "نوع کارشناسی", "payable_expert_fee_toman" to "هزینه تقریبی کارشناسی", "advance_deposit_toman" to "علی‌الحساب اولیه کارشناسی",
 "dispute_amount_toman" to "مبلغ اختلاف", "agreement_mode" to "مبنای حق‌الزحمه", "agreed_fee_toman" to "حق‌الزحمه توافقی", "payable_arbitration_fee_toman" to "حق‌الزحمه داور", "each_party_share_toman" to "سهم هر طرف",

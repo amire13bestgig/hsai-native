@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -23,7 +24,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextDirection
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
@@ -37,39 +47,103 @@ import java.time.ZoneOffset
 import java.text.NumberFormat
 import java.util.Locale
 
-fun Screen.symbol():ImageVector=when(this){Screen.CHAT->NativeIcons.ChatBubbleOutline;Screen.HISTORY->NativeIcons.History;Screen.DOCUMENTS->NativeIcons.Description;Screen.SCANNER->NativeIcons.DocumentScanner;Screen.LAWS->NativeIcons.MenuBook;Screen.CALCULATORS->NativeIcons.Calculate;Screen.DEADLINES->NativeIcons.EventAvailable;Screen.PLANS->NativeIcons.WorkspacePremium;Screen.TICKETS->NativeIcons.SupportAgent;Screen.ACCOUNT->NativeIcons.PersonOutline}
+// آیکون هر صفحه = همان آیکون آیتم متناظر در فهرست سایت (PublicLayout/PanelShell):
+// تعرفه‌ها=Crown · مهلت‌ها=CalendarClock · پشتیبانی=LifeBuoy · اسکن=ScanSearch · برگه=FileSignature
+fun Screen.symbol():ImageVector=when(this){Screen.CHAT->NativeIcons.ChatBubbleOutline;Screen.HISTORY->NativeIcons.History;Screen.DOCUMENTS->NativeIcons.FileSignature;Screen.SCANNER->NativeIcons.ScanSearch;Screen.LAWS->NativeIcons.MenuBook;Screen.CALCULATORS->NativeIcons.Calculate;Screen.DEADLINES->NativeIcons.CalendarClock;Screen.PLANS->NativeIcons.Crown;Screen.TICKETS->NativeIcons.LifeBuoy;Screen.ACCOUNT->NativeIcons.PersonOutline;Screen.SETTINGS->NativeIcons.Settings}
 fun fa(value:Number)=NumberFormat.getNumberInstance(Locale("fa")).format(value)
 fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نشده";if((raw.take(4).toIntOrNull()?:2000)<1700)return raw;return runCatching { val d=LocalDate.parse(raw.take(10));android.icu.text.DateFormat.getDateInstance(android.icu.text.DateFormat.MEDIUM,android.icu.util.ULocale("fa_IR@calendar=persian")).apply{timeZone=android.icu.util.TimeZone.getTimeZone("UTC")}.format(java.util.Date.from(d.atTime(12,0).toInstant(ZoneOffset.UTC))) }.getOrDefault(raw.take(10)) }
 
-@Composable fun Page(hero:(@Composable ()->Unit)?=null,content:@Composable ColumnScope.()->Unit) {
- Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter) {
-  Column(Modifier.widthIn(max=1152.dp).fillMaxWidth().fillMaxHeight().verticalScroll(rememberScrollState()).imePadding()) {
-   if(hero!=null)hero()
-   Column(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=24.dp),verticalArrangement=Arrangement.spacedBy(20.dp),content=content)
+/**
+  * صفحهٔ استاندارد. P1-3: اگر onRefresh داده شود، همان محتوا داخل PullToRefreshBox می‌رود
+  * (کشیدن از بالا = بارگذاری دوباره)؛ بدون آن رفتار قبلی عیناً حفظ می‌شود.
+  */
+@Composable fun Page(hero:(@Composable ()->Unit)?=null,onRefresh:(()->Unit)?=null,refreshing:Boolean=false,content:@Composable ColumnScope.()->Unit) {
+ val body:@Composable ()->Unit = {
+  Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter) {
+   Column(Modifier.widthIn(max=1152.dp).fillMaxWidth().fillMaxHeight().verticalScroll(rememberScrollState()).imePadding()) {
+    if(hero!=null)hero()
+    Column(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=24.dp),verticalArrangement=Arrangement.spacedBy(20.dp),content=content)
+   }
   }
  }
+ if(onRefresh==null)body() else PullToRefreshBox(isRefreshing=refreshing,onRefresh=onRefresh,modifier=Modifier.fillMaxSize()){body()}
 }
 @Composable fun PageHeader(title:String,description:String) {
  Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-  Text(title,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
+  Text(title,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold,modifier=Modifier.semantics{heading()})
   Text(description,color=MaterialTheme.colorScheme.onSurfaceVariant)
  }
 }
-@Composable fun EmptyState(title:String,text:String) { GlassCard {Icon(NativeIcons.FolderOpen,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(32.dp));Text(title,style=MaterialTheme.typography.titleMedium);Text(text,color=MaterialTheme.colorScheme.onSurfaceVariant)} }
+@Composable fun EmptyState(title:String,text:String,icon:ImageVector=NativeIcons.FolderOpen,actionLabel:String="",onAction:(()->Unit)?=null,actionEnabled:Boolean=true) {
+ GlassCard {Icon(icon,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(32.dp))
+  Text(title,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,modifier=Modifier.semantics{heading()})
+  Text(text,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  // P2-2: حالت خالی بن‌بست نباشد؛ یک اقدام اول همان‌جا.
+  if(actionLabel.isNotBlank()&&onAction!=null)SoftButton(onClick=onAction,onCard=true,enabled=actionEnabled){Icon(NativeIcons.Add,null,Modifier.size(16.dp));Text(actionLabel)}
+ }
+}
+
+/**
+ * بارگذاری = اسکلت تپنده، مثل سایت که `animate-pulse` روی کارت‌های در حال انتظار می‌گذارد.
+ * (اسپینر پیش‌فرض M3 نه در سایت بود و نه ارتفاع صفحه را ثابت نگه می‌داشت.)
+ */
+/**
+  * اسکلت بارگذاری. P1-2: شکل اسکلت با محتوای همان صفحه هم‌خوان است تا چیدمان نپرد:
+  *  • LIST  = کارت‌های فهرست (اوراق، مهلت‌ها، پشتیبانی، تاریخچه)
+  *  • CHAT  = حباب‌های گفتگو (کاربر کوتاه‌تر، دستیار پهن‌تر)
+  *  • CARDS = شبکهٔ کارت‌های بلند (طرح‌ها، بانک قوانین)
+  */
+enum class SkeletonKind { LIST, CHAT, CARDS }
+@Composable fun Loading(s:AppUiState,kind:SkeletonKind=SkeletonKind.LIST) {
+ if(!s.loading)return
+ var alpha by remember{mutableStateOf(.35f)}
+ // پالس معادل animate-pulse تیلوند؛ با state + delay پیاده شد تا اپ به animation-core وابسته نشود.
+ LaunchedEffect(Unit){while(true){alpha=if(alpha>.7f).35f else .8f;kotlinx.coroutines.delay(850)}}
+ val bar=if(LocalSiteDark.current)Soft.card2() else Soft.well()
+ @Composable fun bar_(fraction:Float,height:Int)=Box(Modifier.fillMaxWidth(fraction).height(height.dp).background(bar.copy(alpha=alpha),SiteShape.Xl))
+ when(kind) {
+  SkeletonKind.CHAT->Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp),horizontalAlignment=Alignment.Start) {
+   Surface(Modifier.fillMaxWidth(.72f),shape=SiteShape.bubbleUser(),color=Soft.card2()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){bar_(1f,11);bar_(.6f,11)}}
+   Surface(Modifier.fillMaxWidth(),shape=SiteShape.bubbleAi(),color=Soft.card(),border=BorderStroke(1.dp,Soft.border())){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){bar_(.45f,13);bar_(1f,11);bar_(.9f,11);bar_(.7f,11)}}
+  }
+  SkeletonKind.CARDS->Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+   repeat(2) {
+    GlassCard {
+     Box(Modifier.fillMaxWidth(.34f).height(13.dp).background(bar.copy(alpha=alpha),SiteShape.Xl))
+     Box(Modifier.fillMaxWidth(.55f).height(22.dp).background(bar.copy(alpha=alpha),SiteShape.Xl))
+     bar_(1f,11);bar_(.8f,11)
+    }
+   }
+  }
+  SkeletonKind.LIST->Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+   repeat(2) {
+    GlassCard {
+     bar_(.45f,13);bar_(1f,11);bar_(.72f,11)
+    }
+   }
+  }
+ }
+}
 @Composable fun ErrorNotice(s:AppUiState,retry:(()->Unit)?=null) { if(s.error.isNotBlank())Surface(color=MaterialTheme.colorScheme.errorContainer,shape=SiteShape.Xxl,border=BorderStroke(1.dp,MaterialTheme.colorScheme.error.copy(alpha=.35f))){Column(Modifier.fillMaxWidth().padding(14.dp)){Text(s.error,style=MaterialTheme.typography.bodyMedium);if(retry!=null)TextButton(onClick=retry){Text("تلاش دوباره")}}} }
-@Composable fun Loading(s:AppUiState) { if(s.loading)Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.Center){CircularProgressIndicator(Modifier.size(27.dp),strokeWidth=2.dp)} }
 @Composable fun Pager(s:AppUiState,vm:AppViewModel) { if(s.page>1||s.hasNext)Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){SoftButton(onClick={vm.refresh(s.page-1)},enabled=s.page>1&&!s.loading){Text("صفحه قبل")};Text("صفحه ${fa(s.page)}",style=MaterialTheme.typography.bodySmall);SoftButton(onClick={vm.refresh(s.page+1)},enabled=s.hasNext&&!s.loading){Text("صفحه بعد")}} }
 @Composable fun Field(label:String,value:String,onValue:(String)->Unit,modifier:Modifier=Modifier,password:Boolean=false,numeric:Boolean=false,multiline:Boolean=false,error:String?=null,firstError:Boolean=false,attempt:Int=0,enabled:Boolean=true,onEdited:(()->Unit)?=null) {
  var show by remember{mutableStateOf(false)}
  Column(modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(6.dp)) {
   Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
-  OutlinedTextField(value=value,onValueChange={onValue(it);onEdited?.invoke()},enabled=enabled,modifier=Modifier.fillMaxWidth().then(Modifier.fieldFeedback(error,firstError,attempt)).semantics{contentDescription=label},isError=!error.isNullOrBlank(),shape=SiteShape.Xl,singleLine=!multiline,minLines=if(multiline)4 else 1,maxLines=if(multiline)12 else 1,
+  OutlinedTextField(value=value,onValueChange={onValue(it);onEdited?.invoke()},enabled=enabled,modifier=Modifier.fillMaxWidth().then(Modifier.fieldFeedback(error,firstError,attempt)).semantics{contentDescription=label;if(!error.isNullOrBlank())stateDescription=error},isError=!error.isNullOrBlank(),shape=SiteShape.Xl,singleLine=!multiline,minLines=if(multiline)4 else 1,maxLines=if(multiline)12 else 1,
    keyboardOptions=KeyboardOptions(keyboardType=if(password)KeyboardType.Password else if(numeric)KeyboardType.Decimal else KeyboardType.Text),visualTransformation=if(password&&!show)PasswordVisualTransformation()else VisualTransformation.None,
-   textStyle=MaterialTheme.typography.bodyMedium,
-   // UI-parity: ورودی سایت یک «چاه» فرورفته است (.soft-well) با حلقهٔ فوکوس برنجی، نه کادر سفید.
+   textStyle=MaterialTheme.typography.bodyMedium.copy(fontWeight=if(multiline)FontWeight.Normal else FontWeight.Bold),
+   // UI-parity (دور ششم): ورودی سایت `px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm
+   // font-bold text-slate-800 focus:ring-2 focus:ring-brass-400` است و در تیره `dark:bg-[#10263a]
+   // dark:border-white/10`. ادعای قبلی («چاه .soft-well») نادرست بود: .soft-well در JSX سایت
+   // استفاده نمی‌شود و ظاهر واقعی ورودی سفید با حاشیهٔ slate-300 است.
    colors=OutlinedTextFieldDefaults.colors(
-    focusedContainerColor=Soft.well(),unfocusedContainerColor=Soft.well(),disabledContainerColor=Soft.well().copy(alpha=.6f),errorContainerColor=Soft.well(),
-    focusedBorderColor=Palette.Brass400,unfocusedBorderColor=Color.Transparent,disabledBorderColor=Color.Transparent,errorBorderColor=MaterialTheme.colorScheme.error,
+    focusedContainerColor=if(LocalSiteDark.current)Color(0xFF10263A) else Color.White,
+    unfocusedContainerColor=if(LocalSiteDark.current)Color(0xFF10263A) else Color.White,
+    disabledContainerColor=if(LocalSiteDark.current)Color(0xFF10263A).copy(alpha=.6f) else Color.White.copy(alpha=.6f),
+    errorContainerColor=if(LocalSiteDark.current)Color(0xFF10263A) else Color.White,
+    focusedBorderColor=Palette.Brass400,unfocusedBorderColor=if(LocalSiteDark.current)Color(0x1AFFFFFF) else Palette.Slate300,
+    disabledBorderColor=if(LocalSiteDark.current)Color(0x0DFFFFFF) else Palette.Slate200,errorBorderColor=MaterialTheme.colorScheme.error,
     cursorColor=Palette.Brass500),
    supportingText=if(!error.isNullOrBlank()){{Text(error,style=MaterialTheme.typography.labelSmall)}}else if(numeric&&label.contains("تومان")&&value.isNotBlank()){{Text(runCatching{fa(Validation.number("amount",value))+" تومان"}.getOrDefault("عدد را به تومان وارد کنید."),style=MaterialTheme.typography.labelSmall)}}else null,
    trailingIcon=if(password){{IconButton(onClick={show=!show}){Icon(if(show)NativeIcons.VisibilityOff else NativeIcons.Visibility,"نمایش یا پنهان کردن رمز")}}}else null)
@@ -78,9 +152,10 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
 @Composable fun Choice(label:String,value:String,options:List<Pair<String,String>>,error:String?=null,firstError:Boolean=false,attempt:Int=0,enabled:Boolean=true,onEdited:(()->Unit)?=null,onChoose:(String)->Unit) {
  var expanded by remember{mutableStateOf(false)}
  Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
-  Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  // سایت برچسب فیلد و برچسب انتخابگر را یک‌شکل می‌دهد (text-xs font-extrabold navy-950).
+  Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurface)
   Box {
-   Surface(onClick={expanded=true},enabled=enabled,modifier=Modifier.fillMaxWidth().then(Modifier.fieldFeedback(error,firstError,attempt)).semantics{contentDescription=label},shape=SiteShape.Xl,color=Soft.well(),border=BorderStroke(1.dp,if(!error.isNullOrBlank())MaterialTheme.colorScheme.error else Soft.border())) {
+   Surface(onClick={expanded=true},enabled=enabled,modifier=Modifier.fillMaxWidth().then(Modifier.fieldFeedback(error,firstError,attempt)).semantics{contentDescription=label;role=Role.DropdownList},shape=SiteShape.Xl,color=if(LocalSiteDark.current)Color(0xFF10263A) else Color.White,border=BorderStroke(1.dp,if(!error.isNullOrBlank())MaterialTheme.colorScheme.error else if(LocalSiteDark.current)Color(0x1AFFFFFF) else Palette.Slate300)) {
     Row(Modifier.padding(horizontal=14.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically) {
      Text(options.find{it.first==value}?.second?:value,Modifier.weight(1f),textAlign=TextAlign.Start,style=MaterialTheme.typography.bodyMedium,color=Soft.ink())
      Icon(NativeIcons.ExpandMore,null,tint=Soft.inkMuted())
@@ -142,16 +217,48 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
  }
 }
 
+// دکمهٔ خطر سایت: `bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl` (تأیید حذف)
+@Composable fun DangerAction(text:String,busy:Boolean,enabled:Boolean=true,onClick:()->Unit) {
+ Button(onClick=onClick,enabled=!busy&&enabled,modifier=Modifier.fillMaxWidth().heightIn(min=50.dp),shape=SiteShape.Xl,
+  colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFE11D48),contentColor=Color.White,disabledContainerColor=Color(0xFFE2E8F0),disabledContentColor=Color(0xFF94A3B8))) {
+  Text(text,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.ExtraBold)
+ }
+}
+// دکمهٔ خروج سایت: `border-rose-200 bg-rose-50 text-rose-700` (تیره: rose-400/10 + rose-300)
+@Composable fun SoftDangerButton(text:String,busy:Boolean,enabled:Boolean=true,onClick:()->Unit) {
+ val dark=LocalSiteDark.current
+ val on=!busy&&enabled
+ Surface(onClick=onClick,enabled=on,modifier=Modifier.heightIn(min=44.dp),shape=SiteShape.Xl,
+  border=BorderStroke(1.dp,if(dark)Color(0x59FB7185) else Color(0xFFFECDD3)),color=if(dark)Color(0x1AFB7185) else Color(0xFFFFF1F2)) {
+  Box(Modifier.padding(horizontal=14.dp,vertical=10.dp),contentAlignment=Alignment.Center) {
+   Text(text,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.ExtraBold,color=(if(dark)Color(0xFFFDA4AF) else Color(0xFFBE123C)).let{ c->if(on)c else c.copy(alpha=.55f) })
+  }
+ }
+}
+
 @Composable fun ChatScreen(s:AppUiState,vm:AppViewModel,onImage:()->Unit,onCamera:()->Unit,onDictate:()->Unit,onEditImage:()->Unit) {
  val list=rememberLazyListState()
  // FIX(ux): کلید قبلی متنِ آخرین پیام بود و با هر توکن تازهٔ پاسخ، اسکرول از نو انیمیشن اجرا می‌کرد (لرزش فهرست).
- LaunchedEffect(s.messages.size,s.posting){if(s.messages.isNotEmpty())list.animateScrollToItem((list.layoutInfo.totalItemsCount-1).coerceAtLeast(0))}
+ // totalItemsCount در همان فریمِ تغییر ممکن است هنوز به‌روز نشده باشد؛ برای همین تا وقتی
+ // شمارش به تعداد پیام‌ها نرسیده صبر می‌کنیم و بعد به آخرین آیتم می‌رویم (بدون پرش به ابتدا).
+ LaunchedEffect(s.messages.size,s.posting){
+  if(s.messages.isEmpty())return@LaunchedEffect
+  // FIX(bug): این افکت می‌توانست تا ابد معلق بماند (اگر LazyColumn به اندازهٔ کافی چیده نمی‌شد).
+  withTimeoutOrNull(2000){snapshotFlow{list.layoutInfo.totalItemsCount}.first{it>=s.messages.size}}
+  withTimeoutOrNull(2000){list.animateScrollToItem((list.layoutInfo.totalItemsCount-1).coerceAtLeast(0))}
+ }
+ val scope=rememberCoroutineScope()
  Column(Modifier.fillMaxSize().imePadding(),horizontalAlignment=Alignment.CenterHorizontally) {
- LazyColumn(state=list,modifier=Modifier.weight(1f).widthIn(max=1000.dp).fillMaxWidth(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+ Box(Modifier.weight(1f).widthIn(max=1000.dp).fillMaxWidth()) {
+ LazyColumn(state=list,modifier=Modifier.fillMaxSize(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
   if(s.messages.isEmpty())item {HomeContent(s,vm)}
   itemsIndexed(s.messages){index,m->MessageCard(m,s.posting,vm,index==s.messages.lastIndex)}
   if(s.posting&&s.chatStatus in setOf(ChatStatus.SENDING,ChatStatus.RECEIVING))item{Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){CircularProgressIndicator(Modifier.size(19.dp),strokeWidth=2.dp);Text(s.stage.ifBlank{"در حال بررسی و آماده‌سازی پاسخ…"},style=MaterialTheme.typography.bodySmall)}}
   if(s.failedChat!=null)item {ErrorNotice(s);SoftButton(onClick={if(s.chatStatus==ChatStatus.UNKNOWN)vm.openDialog("retryChat","بررسی پیش از ارسال دوباره")else vm.sendChat(true)},enabled=!s.posting){Text("ارسال دوباره همان پیام")}}
+ }
+ // P1-1: وقتی کاربر بالاتر از انتهای گفتگو است، برگشتن به آخرین پیام یک ضربه باشد.
+ val showJump by remember{androidx.compose.runtime.derivedStateOf{list.layoutInfo.totalItemsCount>0&&list.firstVisibleItemIndex+1<list.layoutInfo.totalItemsCount}}
+ Box(Modifier.align(Alignment.BottomEnd).padding(12.dp)){JumpToLatestFab(showJump){scope.launch{withTimeoutOrNull(2000){list.animateScrollToItem((list.layoutInfo.totalItemsCount-1).coerceAtLeast(0))}}}}
  }
  Surface(modifier=Modifier.widthIn(max=1000.dp).fillMaxWidth(),color=MaterialTheme.colorScheme.background) { Column(Modifier.padding(horizontal=13.dp,vertical=9.dp)) {
   if(s.image!=null)ImageAttachment(s.image,onEditImage,{vm.setImage(null)})
@@ -168,12 +275,15 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
   SiteGlass(strong=true) {Row(Modifier.fillMaxWidth().padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)) {
    var attachMenu by remember{mutableStateOf(false)}
    Box{IconButton(onClick={attachMenu=true}){Icon(NativeIcons.AttachFile,"افزودن تصویر")};DropdownMenu(expanded=attachMenu,onDismissRequest={attachMenu=false}){DropdownMenuItem(text={Text("انتخاب تصویر")},onClick={attachMenu=false;onImage()});DropdownMenuItem(text={Text("دوربین")},onClick={attachMenu=false;onCamera()})}}
-   // UI-parity: ورودی سایت `.soft-well` است با حلقهٔ فوکوس brass-400/55؛ نسخهٔ قبل کاملاً بی‌مرز و
-  // روی سطح نوار بود، پس نه «چاه» دیده می‌شد و نه فوکوس.
+   // UI-parity (دور ششم): ورودی نوار چت هم همان ورودی سایت است — bg-white / dark:bg-[#10263a]
+  // با حاشیهٔ slate-300 (تیره: white/10) و حلقهٔ فوکوس brass-400.
   // میکروفن: معادل تایپ صوتی سایت (toggleVoiceDictation) — بدون مجوز، با موتور گفتار دستگاه.
   IconButton(onClick=onDictate,enabled=!s.posting,modifier=Modifier.semantics{contentDescription="تایپ صوتی"}){Icon(NativeIcons.Mic,"تایپ صوتی")}
-  OutlinedTextField(value=s.draft,onValueChange=vm::setDraft,placeholder={Text("ماجرا را ساده بنویسید…",style=MaterialTheme.typography.bodySmall)},modifier=Modifier.weight(1f),maxLines=5,shape=SiteShape.Xxl,colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=Soft.border(),focusedBorderColor=Palette.Brass400,unfocusedContainerColor=Soft.well(),focusedContainerColor=Soft.well(),cursorColor=Palette.Brass500,unfocusedTextColor=Soft.ink(),focusedTextColor=Soft.ink()))
-   FilledIconButton(onClick={vm.sendChat()},enabled=!s.posting&&(s.draft.isNotBlank()||s.image!=null),modifier=Modifier.size(46.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=SiteNavy,contentColor=SiteGold,disabledContainerColor=MaterialTheme.colorScheme.onSurface.copy(alpha=.06f),disabledContentColor=MaterialTheme.colorScheme.onSurface.copy(alpha=.38f))){Icon(NativeIcons.Send,"ارسال پیام")}
+  Column(Modifier.weight(1f)) {
+   OutlinedTextField(value=s.draft,onValueChange=vm::setDraft,placeholder={Text("ماجرا را ساده بنویسید…",style=MaterialTheme.typography.bodySmall)},modifier=Modifier.fillMaxWidth(),maxLines=5,shape=SiteShape.Xxl,colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=if(s.dark)Color(0x1AFFFFFF) else Palette.Slate300,focusedBorderColor=Palette.Brass400,unfocusedContainerColor=if(s.dark)Color(0xFF10263A) else Color.White,focusedContainerColor=if(s.dark)Color(0xFF10263A) else Color.White,cursorColor=Palette.Brass500,unfocusedTextColor=Soft.ink(),focusedTextColor=Soft.ink()))
+   if(s.draftTruncated)Text("حداکثر "+fa(UiPresentation.DRAFT_LIMIT)+" نویسه پذیرفته می‌شود؛ ادامهٔ متن ذخیره نشد.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.error)
+  }
+  FilledIconButton(onClick={vm.sendChat()},enabled=!s.posting&&(s.draft.isNotBlank()||s.image!=null),modifier=Modifier.size(46.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=SiteNavy,contentColor=SiteGold,disabledContainerColor=MaterialTheme.colorScheme.onSurface.copy(alpha=.06f),disabledContentColor=MaterialTheme.colorScheme.onSurface.copy(alpha=.38f))){Icon(NativeIcons.Send,"ارسال پیام")}
   }
   }
   if(s.posting&&s.stage.isNotBlank())TextButton(onClick=vm::stopChat){Text("توقف دریافت پاسخ")}
@@ -193,7 +303,7 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
     val scan=screen==Screen.SCANNER
     Surface(onClick={vm.navigate(screen)},modifier=modifier,shape=SiteShape.Xxl,color=if(scan)Palette.Navy950 else Soft.card(),border=BorderStroke(1.dp,if(scan)Palette.Brass400.copy(alpha=.45f) else Palette.Brass300)) {
      Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-      Icon(if(scan)NativeIcons.PhotoCamera else NativeIcons.Description,null,Modifier.size(28.dp),tint=if(scan)SiteGold else Copper)
+      Icon(if(scan)NativeIcons.ScanSearch else NativeIcons.FileSignature,null,Modifier.size(28.dp),tint=if(scan)SiteGold else Copper)
       Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
        Text(if(scan)"عکس ابلاغیه ثنا، پیامک دادگاه یا قرارداد را بفرستید"else "تنظیم برگه شکایت",style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold,color=if(scan)Palette.Brass300 else MaterialTheme.colorScheme.onSecondaryContainer)
        Text(if(scan)"با قابلیت پوشاندن مشخصات حساس، قبل از ارسال"else "پرسش‌وپاسخ گام‌به‌گام، بدون فرم سخت اداری",style=MaterialTheme.typography.bodySmall,color=if(scan)Palette.Slate300 else MaterialTheme.colorScheme.onSecondaryContainer)
@@ -205,18 +315,29 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    else Column(verticalArrangement=Arrangement.spacedBy(12.dp)){action(Screen.SCANNER,Modifier.fillMaxWidth());action(Screen.DOCUMENTS,Modifier.fillMaxWidth())}
   }
   var moreTopics by rememberSaveable{mutableStateOf(false)}
-  val topics=listOf("پول، چک و بدهی" to "طلبم را نمی‌دهند یا چکم برگشت خورده","خانه، مستأجر و صاحب‌خانه" to "مشکل پول پیش، تخلیه خانه یا قولنامه ملک","خانواده و ازدواج" to "مهریه، نفقه، طلاق یا حضانت فرزند","محل کار و بیمه" to "کارفرما حقوق، بیمه یا سنواتم را نداده","اینترنت، کلاهبرداری و جرم" to "کلاه سرم رفته، فیشینگ شده یا مزاحمم شده‌اند","ارث و میراث خانوادگی" to "انحصار وراثت و تقسیم ارث بعد از فوت")
+  // همان ترتیب و همان آیکون‌های LIFE_SITUATION_CARDS در ChatAgentPage.jsx:
+  // Wallet · Home · Heart · Briefcase · AlertTriangle · Users
+  val topics=listOf(
+   Triple("پول، چک و بدهی","طلبم را نمی‌دهند یا چکم برگشت خورده",NativeIcons.Wallet),
+   Triple("خانه، مستأجر و صاحب‌خانه","مشکل پول پیش، تخلیه خانه یا قولنامه ملک",NativeIcons.Home),
+   Triple("خانواده و ازدواج","مهریه، نفقه، طلاق یا حضانت فرزند",NativeIcons.Heart),
+   Triple("محل کار و بیمه","کارفرما حقوق، بیمه یا سنواتم را نداده",NativeIcons.Briefcase),
+   Triple("اینترنت، کلاهبرداری و جرم","کلاه سرم رفته، فیشینگ شده یا مزاحمم شده‌اند",NativeIcons.AlertTriangle),
+   Triple("ارث و میراث خانوادگی","انحصار وراثت و تقسیم ارث بعد از فوت",NativeIcons.Users))
   BoxWithConstraints(Modifier.fillMaxWidth()) {
    val scale=androidx.compose.ui.platform.LocalDensity.current.fontScale
    val columns=if(maxWidth>=900.dp&&scale<1.3f)3 else if(maxWidth>=600.dp&&scale<1.4f)2 else 1
    Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
     (if(moreTopics)topics else topics.take(3)).chunked(columns).forEach { row->Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-     row.forEach { (title,description)->
-      Surface(onClick={vm.chooseTopic(description)},modifier=Modifier.weight(1f).fillMaxHeight(),shape=SiteShape.Xxl,color=Soft.card(),border=BorderStroke(1.dp,Soft.border()),tonalElevation=0.dp,shadowElevation=if(LocalSiteDark.current)0.dp else 2.dp) {
-       Column(Modifier.fillMaxWidth().padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text(title,style=MaterialTheme.typography.labelLarge,color=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700,fontWeight=FontWeight.ExtraBold)
-        Text(description,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.Medium)
+     row.forEach { (badge,title,topicIcon)->
+      // سایت: <button class="hsai-glass p-3.5 rounded-2xl …"> با آیکون ۱۴dp + برچسب برنجی ۱۱px
+      // و متن اصلی font-black navy-950 / slate-50. پس کارت اینجا hsai-glass است، نه soft-card.
+      GlassCard(modifier=Modifier.weight(1f).fillMaxHeight().clickable(onClickLabel=title){vm.chooseTopic(title)},glass=true,pad=14,radiusDp=16,spacing=6) {
+       Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+        Icon(topicIcon,null,Modifier.size(14.dp),tint=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700)
+        Text(badge,style=MaterialTheme.typography.labelSmall,color=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700,fontWeight=FontWeight.ExtraBold)
        }
+       Text(title,style=MaterialTheme.typography.bodyMedium,color=if(LocalSiteDark.current)Palette.Slate50 else Palette.Navy950,fontWeight=FontWeight.Black)
       }
      }
      repeat(columns-row.size){Spacer(Modifier.weight(1f))}
@@ -259,27 +380,30 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    Text("پیشنهادهای پاسخ",style=MaterialTheme.typography.labelMedium)
    FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
     (if(all)m.suggestions else m.suggestions.take(2)).forEach { suggestion->
-     SuggestionChip(onClick={vm.setDraft(suggestion)},enabled=!busy,colors=SuggestionChipDefaults.suggestionChipColors(containerColor=Soft.card(),labelColor=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700),modifier=Modifier.semantics{contentDescription="افزودن به پیش‌نویس: "+suggestion},label={Text(suggestion,maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)})
+     // سایت: `hsai-glass-soft px-3 py-1.5 rounded-xl text-[11px] font-bold`
+     SiteChip(suggestion,modifier=Modifier.semantics{contentDescription="افزودن به پیش‌نویس: "+suggestion},enabled=!busy,onClick={vm.setDraft(suggestion)})
     }
    }
    if(m.suggestions.size>2)TextButton(onClick={all=!all}){Text(if(all)"پیشنهادهای کمتر"else "پیشنهادهای بیشتر")}
   }
   if(m.citations.isNotEmpty()){var expanded by remember{mutableStateOf(false)};TextButton(onClick={expanded=!expanded}){Icon(NativeIcons.MenuBook,null,Modifier.size(17.dp));Text("${fa(m.citations.size)} استناد قانونی")};if(expanded)m.citations.forEach { c->Text(c.str("law_name")+" — ماده "+c.str("article_number"),fontWeight=FontWeight.Medium);SelectionContainer{Text(c.str("official_text"),style=MaterialTheme.typography.bodySmall)};if(c.str("plain_explanation").isNotBlank())Text(c.str("plain_explanation"),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);if(c.optLong("id")>0)TextButton(onClick={vm.viewArticle(c.optLong("id"))},enabled=!busy){Text("مشاهده ماده و توضیحات")} }}
-  if(m.document!=null)SoftButton(onClick={vm.openDialog("documentView",m.document.str("title","برگه قضایی آماده"),m.document)}){Text("مشاهده برگه قضایی آماده")}
+  if(m.document!=null)SoftButton(onClick={vm.openDialog("documentView",m.document.str("title","برگه قضایی آماده"),m.document)},enabled=!busy){Text("مشاهده برگه قضایی آماده")}
   if(m.role=="assistant"&&m.text.isNotBlank()) {
    // دکمه‌های زیر پاسخ: سایت از «شبح» استفاده می‌کند (بدون پس‌زمینه، متن برنجی، ۳۲dp)،
    // نه TextButton پیش‌فرض M3 که پدینگ بزرگ و رنگ برند ندارد.
    FlowRow(horizontalArrangement=Arrangement.spacedBy(2.dp),verticalArrangement=Arrangement.spacedBy(2.dp)) {
     GhostAction("کپی",NativeIcons.ContentCopy,{vm.copy(m.text)})
     if(m.id!=null) {
-     GhostAction("مفید بود",if(m.feedback=="like")NativeIcons.Check else NativeIcons.ThumbUp,{vm.feedback(m.id,"like")},enabled=!busy)
-     GhostAction("مفید نبود",NativeIcons.ThumbDown,{vm.feedback(m.id,"dislike")},enabled=!busy)
+     GhostAction("مفید بود",if(m.feedback=="like")NativeIcons.Check else NativeIcons.ThumbUp,{vm.feedback(m.id,"like")},enabled=!busy,selected=m.feedback=="like")
+     GhostAction("مفید نبود",NativeIcons.ThumbDown,{vm.feedback(m.id,"dislike")},enabled=!busy,selected=m.feedback=="dislike")
      GhostAction("ساده‌تر بگو",NativeIcons.AutoAwesome,{vm.simplify(m.id)},enabled=!busy)
     }
     // معادل دکمهٔ «خواندن» سایت (speechSynthesis)؛ اگر موتور گفتار فارسی نباشد، پیام روشن می‌دهد.
     val speech=LocalContext.current
-    GhostAction("خواندن",NativeIcons.VolumeUp,{Speaker.speak(speech,m.text){vm.notice("موتور خواندن فارسی روی این دستگاه در دسترس نیست.")}})
-    GhostAction("توقف خواندن",null,{Speaker.stop()})
+    val speaking by Speaker.speaking.collectAsState()
+    // FIX(ux): قبلاً هر دو دکمه هم‌زمان دیده می‌شدند و «توقف خواندن» حتی بدون پخش، قابل زدن بود.
+    if(speaking)GhostAction("توقف خواندن",NativeIcons.Close,{Speaker.stop()})
+    else GhostAction("خواندن",NativeIcons.VolumeUp,{Speaker.rate=vm.state.value.ttsRate;Speaker.speak(speech,m.text){vm.notice("موتور خواندن فارسی روی این دستگاه در دسترس نیست.")}})
    }
   }
  }
@@ -308,11 +432,14 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
   Icon(NativeIcons.PersonOutline,null,tint=MaterialTheme.colorScheme.secondary,modifier=Modifier.size(32.dp))
   Text(s.user.str("full_name","حساب کاربری"),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
   Text(s.subscription.str("plan_name","حساب حق‌سنج"),color=MaterialTheme.colorScheme.secondary)
-  if(s.user.str("email").isNotBlank())Text(s.user.str("email"))
-  if(s.user.str("phone").isNotBlank())Text(s.user.str("phone"))
+  // سایت این دو را با dir="ltr" و font-mono نشان می‌دهد تا ایمیل/شماره به‌هم نریزد.
+  if(s.user.str("email").isNotBlank())Text(s.user.str("email"),modifier=Modifier.semantics{contentDescription="ایمیل"},style=MaterialTheme.typography.bodySmall.merge(TextStyle(textDirection=TextDirection.Ltr,fontFamily=FontFamily.Monospace)))
+  if(s.user.str("phone").isNotBlank())Text(s.user.str("phone"),modifier=Modifier.semantics{contentDescription="شماره تلفن"},style=MaterialTheme.typography.bodySmall.merge(TextStyle(textDirection=TextDirection.Ltr,fontFamily=FontFamily.Monospace)))
   FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-   SoftButton(onClick={vm.navigate(Screen.PLANS)}){Text("ارتقا / تمدید اشتراک")}
-   TextButton(onClick={vm.openDialog("logout","خروج از حساب")},enabled=!s.posting){Text("خروج")}
+   // سایت (AccountSettingsPage): ارتقا = bg-navy-950 text-brass-300 + آیکون Crown ۱۶dp؛
+   // خروج = bg-rose-50 border-rose-200 text-rose-700.
+   SoftButton(onClick={vm.navigate(Screen.PLANS)}){Icon(NativeIcons.Crown,null,Modifier.size(16.dp));Text("ارتقا / تمدید اشتراک")}
+   SoftDangerButton("خروج",s.posting,onClick={vm.openDialog("logout","خروج از حساب")})
   }
  }
  // تأیید ایمیل: بدون آن، بازیابی رمز و اعلان‌های امنیتی کار نمی‌کند؛
@@ -364,15 +491,15 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
  } else GlassCard {
   Text("امنیت و رمز عبور",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
   Text("رمز عبور روی این دستگاه ذخیره نمی‌شود.")
-  SoftButton(onClick={vm.openDialog("password","تغییر رمز عبور")}){Text("تغییر رمز عبور")}
+  SoftButton(onClick={vm.openDialog("password","تغییر رمز عبور")},enabled=!s.posting){Text("تغییر رمز عبور")}
  }
 } }
-@Composable fun HistoryScreen(s:AppUiState,vm:AppViewModel) {WorkspaceListDetail(s,vm,setOf("historyPreview"),list={wide->Page {
+@Composable fun HistoryScreen(s:AppUiState,vm:AppViewModel) {WorkspaceListDetail(s,vm,setOf("historyPreview"),list={wide->Page(onRefresh={vm.refresh()},refreshing=s.loading) {
  PageHeader("گفتگوهای من","گفتگوی قبلی را ادامه دهید یا موضوع تازه‌ای شروع کنید.")
  SoftButton(onClick=vm::newChat){Icon(NativeIcons.Add,null);Text("گفتگوی جدید")}
  Loading(s);ErrorNotice(s,{vm.refresh()})
- if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("هنوز گفتگویی ندارید","اولین سؤال خود را در بخش گفتگو مطرح کنید.")
- AdaptiveCards(s.items) { c->
+ if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("هنوز گفتگویی ندارید","اولین سؤال خود را در بخش گفتگو مطرح کنید.",NativeIcons.History,actionLabel="شروع گفتگوی جدید",onAction=vm::newChat)
+ AdaptiveCards(s.items,onDelete={ c->vm.openDialog("delete","حذف گفتگو",JSONObject().put("kind","consultations").put("id",c.optLong("id")))},deleteLabel={ "حذف گفتگو" }) { c->
   Text(c.str("title","گفتگوی حقوقی"),fontWeight=FontWeight.Medium)
   Text(dateFa(c.str("updated_at",c.str("created_at"))),style=MaterialTheme.typography.bodySmall)
   Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -383,12 +510,12 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
   }
  };Pager(s,vm)
 }},detail={d->HistoryDetail(d,s,vm,Modifier.fillMaxSize())}) }
-@Composable fun DocumentScreen(s:AppUiState,vm:AppViewModel) {WorkspaceListDetail(s,vm,setOf("documentView","documentEdit"),list={wide->Page {
+@Composable fun DocumentScreen(s:AppUiState,vm:AppViewModel) {WorkspaceListDetail(s,vm,setOf("documentView","documentEdit"),list={wide->Page(onRefresh={vm.refresh()},refreshing=s.loading) {
  PageHeader("اوراق قضایی شما","پیش‌نویس‌ها را پیش از چاپ و ثبت بررسی کنید.")
- Button(onClick={vm.openDialog("documentCreate","تنظیم برگه قضایی")},shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=if(LocalSiteDark.current)Palette.Brass400 else Palette.Navy950,contentColor=if(LocalSiteDark.current)Palette.Navy950 else Palette.Brass300)){Icon(NativeIcons.Add,null);Text("تنظیم برگه جدید")}
+ Button(onClick={vm.openDialog("documentCreate","تنظیم برگه قضایی")},enabled=!s.posting,shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=if(LocalSiteDark.current)Palette.Brass400 else Palette.Navy950,contentColor=if(LocalSiteDark.current)Palette.Navy950 else Palette.Brass300)){Icon(NativeIcons.Add,null);Text("تنظیم برگه جدید")}
  Loading(s);ErrorNotice(s,{vm.refresh()})
- if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("برگه‌ای ثبت نشده","شرح ماجرا را به پیش‌نویس سند تبدیل کنید.")
- AdaptiveCards(s.items) { d->
+ if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("برگه‌ای ثبت نشده","شرح ماجرا را به پیش‌نویس سند تبدیل کنید.",NativeIcons.FileSignature,actionLabel="ساخت برگهٔ تازه",onAction={vm.openDialog("documentCreate","تنظیم برگه قضایی")})
+ AdaptiveCards(s.items,onDelete={ d->vm.openDialog("delete","حذف سند",JSONObject().put("kind","documents").put("id",d.optLong("id")))},deleteLabel={ "حذف سند" }) { d->
   Text(d.str("title",d.str("doc_type","سند قضایی")),fontWeight=FontWeight.Medium)
   Text(d.str("doc_type")+" · "+dateFa(d.str("created_at")),style=MaterialTheme.typography.bodySmall)
   Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -406,18 +533,18 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
  var kind by rememberSaveable{mutableStateOf("notice")};var text by rememberSaveable{mutableStateOf("")};var consent by rememberSaveable{mutableStateOf(false)};var noticeDate by rememberSaveable{mutableStateOf("")}
  GlassCard{Choice("نوع برگه",kind,listOf("notice" to "ابلاغیه دادگاه","contract" to "قرارداد"),error=s.fieldErrors["kind"],enabled=!s.posting,onEdited={vm.inputEdited("kind",true)},firstError=s.firstField("kind"),attempt=s.validationAttempt){kind=it};FlowRow{SoftButton(onClick=onImage,onCard=true){Icon(NativeIcons.AddPhotoAlternate,null,Modifier.size(18.dp));Text("گالری")};Spacer(Modifier.width(10.dp));SoftButton(onClick=onCamera,onCard=true){Icon(NativeIcons.PhotoCamera,null,Modifier.size(18.dp));Text("دوربین")}};if(s.image!=null){NativeImage(s.image);ImageAttachment(s.image,onEdit,{vm.setImage(null)},showPreview=false)};Field("یا متن برگه را وارد کنید",text,{text=it},multiline=true,error=s.fieldErrors["text"],enabled=!s.posting,onEdited={vm.inputEdited("text",true)},firstError=s.firstField("text"),attempt=s.validationAttempt);if(kind=="notice"){Field("تاریخ ابلاغ (میلادی، اختیاری — مثل 2026-10-01)",noticeDate,{noticeDate=it},error=s.fieldErrors["notice_date"],enabled=!s.posting,onEdited={vm.inputEdited("notice_date",true)},firstError=s.firstField("notice_date"),attempt=s.validationAttempt);Text("مهلت قانونی فقط با تاریخ واقعی ابلاغ حساب می‌شود؛ اگر خالی بماند هیچ سررسیدی ساخته نمی‌شود و اپ تاریخ حدسی نمی‌سازد.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Row(Modifier.then(Modifier.fieldFeedback(s.fieldErrors["consent"],s.firstField("consent"),s.validationAttempt)).toggleable(value=consent,enabled=!s.posting,role=Role.Checkbox,onValueChange={consent=it;vm.inputEdited("consent")}),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=consent,onCheckedChange=null,enabled=!s.posting);Text("مشخصات حساس را بررسی کرده‌ام و با ارسال برگه برای تحلیل موافقم.",style=MaterialTheme.typography.bodySmall)};s.fieldErrors["consent"]?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)};Action("تحلیل برگه",s.posting){vm.analyze(kind,text,s.image,consent,noticeDate)}}
  ErrorNotice(s);s.result?.let{result->GlassCard{if(ApiContract.scanUnreadable(result)){Text("این برگه خوانده نشد",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.error);Text(result.str("plain_meaning","متن یا تصویر ارسالی قابل خواندن نبود؛ پس هیچ نوع برگه، مهلت یا اقدامی برای شما تعیین نمی‌شود."),style=MaterialTheme.typography.bodyMedium)}else{Text("نتیجه تحلیل",style=MaterialTheme.typography.titleMedium);Text("این تحلیل و هر مهلت پیشنهادی، خروجی هوش مصنوعی است و ممکن است نامرتبط یا اشتباه باشد. نوع برگه، تاریخ ابلاغ و مهلت قانونی را با اصل سند و مرجع قضایی مستقلاً تأیید کنید؛ اپ یادآور خودکار ثبت نمی‌کند.",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall);if(ApiContract.scanNoticeDateMissing(result))Text("تاریخ ابلاغ را وارد نکرده‌اید؛ برای همین هیچ سررسیدی محاسبه نشد. تاریخ واقعی ابلاغ را در فرم بالا بنویسید و دوباره تحلیل کنید.",style=MaterialTheme.typography.bodySmall)};DataResult(result)}}
- Text("تحلیل‌های قبلی",style=MaterialTheme.typography.titleMedium);Loading(s);if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())Text("تحلیلی ثبت نشده است.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);AdaptiveCards(s.items) { a->Text(a.str("title","تحلیل برگه"),fontWeight=FontWeight.Medium);var expanded by remember{mutableStateOf(false)};TextButton(onClick={expanded=!expanded}){Text(if(expanded)"بستن تحلیل"else "نمایش تحلیل")};if(expanded)DataResult(a.optJSONObject("analysis")?:JSONObject().put("text",a.str("raw_text")));if(a.optLong("id")>0)TextButton(onClick={vm.openDialog("delete","حذف تحلیل",JSONObject().put("kind","scanner").put("id",a.optLong("id")))}){Text("حذف تحلیل")}};Pager(s,vm)
+ Text("تحلیل‌های قبلی",style=MaterialTheme.typography.titleMedium);Loading(s);if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())Text("تحلیلی ثبت نشده است.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant);AdaptiveCards(s.items,onDelete={ a->vm.openDialog("delete","حذف تحلیل",JSONObject().put("kind","scanner").put("id",a.optLong("id")))},deleteLabel={ "حذف تحلیل" }) { a->Text(a.str("title","تحلیل برگه"),fontWeight=FontWeight.Medium);var expanded by remember{mutableStateOf(false)};TextButton(onClick={expanded=!expanded}){Text(if(expanded)"بستن تحلیل"else "نمایش تحلیل")};if(expanded)DataResult(a.optJSONObject("analysis")?:JSONObject().put("text",a.str("raw_text")));if(a.optLong("id")>0)TextButton(onClick={vm.openDialog("delete","حذف تحلیل",JSONObject().put("kind","scanner").put("id",a.optLong("id")))}){Text("حذف تحلیل")}};Pager(s,vm)
 } }
-@Composable fun LawScreen(s:AppUiState,vm:AppViewModel) {WorkspaceListDetail(s,vm,if(s.lawTab=="search")setOf("article")else emptySet(),list={wide->Page(hero={SiteHero("قانون موردنظرتان را پیدا کنید","متن قانون، توضیح ساده و مقایسه تغییرات.","جستجوی رایگان در متن رسمی قوانین",NativeIcons.MenuBook,footer={SiteTabs(listOf("search" to "جستجو","comparisons" to "قدیم و جدید","glossary" to "واژه‌نامه","collections" to "مجموعه‌ها"),s.lawTab,vm::lawTab)})}) {
- if(s.lawTab=="search"){if(s.lawSlug.isNotBlank())AssistChip(onClick=vm::clearLawCollection,label={Text("حذف فیلتر مجموعه")});var q by rememberSaveable{mutableStateOf(s.lawQuery)};GlassCard{Field("کلمه یا موضوع حقوقی",q,{q=it});Choice("نوع منبع",s.lawSource,listOf("all" to "همه قوانین و رأی‌ها","statute" to "قوانین مجلس","precedent" to "رأی‌های وحدت رویه","advisory" to "نظرات مشورتی قضات","judiciary_bylaw" to "بخشنامه‌های قوه قضاییه"),onChoose=vm::lawSource);Action("جستجو در قوانین",s.loading){vm.searchLaws(q)};FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("دادگاه صلح","چک صیادی","پول پیش و تخلیه","کلاهبرداری رایانه‌ای","مهریه ۱۱۰ سکه","خیانت در امانت").forEach{t->SuggestionChip(onClick={q=t;vm.searchLaws(t)},label={Text(t)})}}}}
+@Composable fun LawScreen(s:AppUiState,vm:AppViewModel) {WorkspaceListDetail(s,vm,if(s.lawTab=="search")setOf("article")else emptySet(),list={wide->Page(onRefresh={vm.refresh(s.page)},refreshing=s.loading,hero={SiteHero("قانون موردنظرتان را پیدا کنید","متن قانون، توضیح ساده و مقایسه تغییرات.","جستجوی رایگان در متن رسمی قوانین",NativeIcons.MenuBook,footer={SiteTabs(listOf("search" to "جستجو","comparisons" to "قدیم و جدید","glossary" to "واژه‌نامه","collections" to "مجموعه‌ها"),s.lawTab,vm::lawTab,icon={k->when(k){"search"->NativeIcons.Search;"comparisons"->NativeIcons.GitCompare;"glossary"->NativeIcons.HelpCircle;else->NativeIcons.Library}})})}) {
+ if(s.lawTab=="search"){if(s.lawSlug.isNotBlank())AssistChip(onClick=vm::clearLawCollection,label={Text("حذف فیلتر مجموعه")});var q by rememberSaveable{mutableStateOf(s.lawQuery)};GlassCard{Field("کلمه یا موضوع حقوقی",q,{q=it});Choice("نوع منبع",s.lawSource,listOf("all" to "همه قوانین و رأی‌ها","statute" to "قوانین مجلس","precedent" to "رأی‌های وحدت رویه","advisory" to "نظرات مشورتی قضات","judiciary_bylaw" to "بخشنامه‌های قوه قضاییه"),onChoose=vm::lawSource);Action("جستجو در قوانین",s.loading){vm.searchLaws(q)};FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("دادگاه صلح","چک صیادی","پول پیش و تخلیه","کلاهبرداری رایانه‌ای","مهریه ۱۱۰ سکه","خیانت در امانت").forEach{t->SiteChip(t,onClick={q=t;vm.searchLaws(t)})}}}}
  if(s.lawTab=="glossary")LegalGlossary()else {
- Loading(s);ErrorNotice(s,{vm.refresh(s.page)})
- if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState(if(s.lawQuery.isBlank()&&s.lawTab=="search")"دنبال چه قانونی می‌گردید؟"else "نتیجه‌ای یافت نشد","موضوع را کوتاه و دقیق وارد کنید یا دسته دیگری را ببینید.")
+ Loading(s,SkeletonKind.CARDS);ErrorNotice(s,{vm.refresh(s.page)})
+ if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState(if(s.lawQuery.isBlank()&&s.lawTab=="search")"دنبال چه قانونی می‌گردید؟"else "نتیجه‌ای یافت نشد","موضوع را کوتاه و دقیق وارد کنید یا دسته دیگری را ببینید.",NativeIcons.Search)
  AdaptiveCards(s.items) { a->if(s.lawTab=="search"){Text(a.str("law_name")+" — ماده "+a.str("article_number"),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary);SelectionContainer{Text(a.str("official_text"))};if(a.str("plain_explanation").isNotBlank()){var expanded by remember{mutableStateOf(false)};TextButton(onClick={expanded=!expanded}){Text("شرح ساده")};if(expanded)Text(a.str("plain_explanation"))};if(a.optLong("id")>0)TextButton(onClick={vm.viewArticle(a.optLong("id"),wide)},enabled=!s.posting){Text("متن کامل و کاربرد ماده")}}else if(s.lawTab=="comparisons"){LawComparison(a)}else{Text(a.str("title",a.str("name",a.str("law_name","اطلاعات قانونی"))),fontWeight=FontWeight.Medium);if(a.has("article_count"))Text("${fa(a.optInt("article_count"))} ماده",style=MaterialTheme.typography.bodySmall);if(a.str("category").isNotBlank())Text(a.str("category"),style=MaterialTheme.typography.bodySmall);if(a.str("slug").isNotBlank())TextButton(onClick={vm.openLawCollection(a.str("slug"))}){Text("مشاهده مواد این مجموعه")}} };Pager(s,vm)
  }
 }},detail={d->ScrollableDetail(d,s,vm,true)}) }
 @Composable fun CalculatorScreen(s:AppUiState,vm:AppViewModel) {Page(hero={SiteHero("محاسبه هزینه‌ها و حقوق مالی","مبالغ را به تومان و تاریخ‌های ورودی را شمسی وارد کنید.","همه عددها به تومان، نه ریال",NativeIcons.Calculate)}) {
- val calc=Domain.calculators.first {it.id==s.calculator}
+ val calc=Domain.calculatorOrFirst(s.calculator) // FIX(crash): شناسهٔ ناشناخته دیگر صفحه را نمی‌اندازد
  val values=remember(s.calculator){mutableStateMapOf<String,String>().apply{calc.fields.forEach { put(it.key,if(it.key=="copies")"1"else it.options.firstOrNull()?.first?:if(it.key.contains("count")||it.key.contains("will")||it.key.contains("debts")||it.key.contains("stocks")||it.key.contains("deposits"))"0"else "") }}}
  BoxWithConstraints(Modifier.fillMaxWidth()) {
   val wide=maxWidth>=800.dp
@@ -460,14 +587,20 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
   else Column(verticalArrangement=Arrangement.spacedBy(20.dp)){selection();form()}
  }
 } }
-@Composable fun DeadlineScreen(s:AppUiState,vm:AppViewModel) {Page(hero={SiteHero("مهلت‌های شما","تاریخ پایان را با مرجع قضایی تطبیق دهید؛ یادآور جایگزین پیگیری شخصی نیست.","مهلت و یادآور",NativeIcons.CalendarMonth)}) {
- Button(onClick={vm.openDialog("deadline","ثبت مهلت جدید")},shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=if(LocalSiteDark.current)Palette.Brass400 else Palette.Navy950,contentColor=if(LocalSiteDark.current)Palette.Navy950 else Palette.Brass300)){Icon(NativeIcons.Add,null);Text("ثبت مهلت")}
+@Composable fun DeadlineScreen(s:AppUiState,vm:AppViewModel) {Page(onRefresh={vm.refresh()},refreshing=s.loading,hero={SiteHero("مهلت‌های شما","تاریخ پایان را با مرجع قضایی تطبیق دهید؛ یادآور جایگزین پیگیری شخصی نیست.","مهلت و یادآور",NativeIcons.CalendarClock)}) {
+ Button(onClick={vm.openDialog("deadline","ثبت مهلت جدید")},enabled=!s.posting,shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=if(LocalSiteDark.current)Palette.Brass400 else Palette.Navy950,contentColor=if(LocalSiteDark.current)Palette.Navy950 else Palette.Brass300)){Icon(NativeIcons.Add,null);Text("ثبت مهلت")}
  Text("یادآور اختیاری: یک روز قبل، ساعت ۹ صبح گوشی",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+ // P3-1: جابه‌جایی بین فهرست و تقویم ماهانه؛ داده‌ها همان پاسخ سرور است (هیچ محاسبهٔ تاریخ در اپ).
+ Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+  SoftButton(onClick=vm::toggleDeadlineView,onCard=true){Icon(if(s.deadlineView=="list")NativeIcons.CalendarMonth else NativeIcons.FilterList,null,Modifier.size(16.dp));Text(if(s.deadlineView=="list")"نمای تقویم ماهانه" else "نمای فهرست")}
+ }
+ if(s.deadlineView=="calendar"){DeadlineMonthView(s,vm);return@Page}
  Loading(s);ErrorNotice(s,{vm.refresh()})
- if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("مهلتی ثبت نشده","عنوان و تاریخ دقیق پایان مهلت را وارد کنید.")
- AdaptiveCards(s.items) { d->
+ if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("مهلتی ثبت نشده","عنوان و تاریخ دقیق پایان مهلت را وارد کنید.",NativeIcons.CalendarClock,actionLabel="ثبت اولین مهلت",onAction={vm.openDialog("deadline","ثبت مهلت جدید")})
+ AdaptiveCards(s.items,onDelete={ d->vm.openDialog("delete","حذف مهلت",JSONObject().put("kind","deadlines").put("id",d.optLong("id")))},deleteLabel={ "حذف مهلت" }) { d->
   val title=d.str("title",d.str("case_title","مهلت قانونی"));val date=d.str("due_date",d.str("deadline_date"))
   Text(title,fontWeight=FontWeight.Medium);Text(dateFa(date))
+  if(DaysLeft.label(if(d.has("days_left"))d.optInt("days_left") else null).isNotBlank())Text(DaysLeft.label(d.optInt("days_left")),style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold,color=if(DaysLeft.overdue(d.optInt("days_left")))MaterialTheme.colorScheme.error else if(DaysLeft.urgent(d.optInt("days_left")))MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
   Text("میلادی: \u2066"+date.take(10)+"\u2069",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
   Text(if(d.str("status")=="done")"انجام‌شده"else "باز",color=MaterialTheme.colorScheme.primary)
   if(d.str("notes").isNotBlank())Text(d.str("notes"),style=MaterialTheme.typography.bodySmall)
@@ -482,14 +615,15 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
   }
  };Pager(s,vm)
 } }
-@Composable fun PlansScreen(s:AppUiState,vm:AppViewModel) {Page(hero={SiteHero("طرح مناسب خود را انتخاب کنید","ماهانه یا سالانه؛ مبلغ نهایی را پیش از پرداخت بررسی کنید.","طرح‌های ماهانه و سالانه • قیمت مستقیم از سرور",NativeIcons.WorkspacePremium,footer={SiteTabs(listOf("monthly" to "طرح‌های ماهانه","yearly" to "طرح‌های سالانه"),s.planCycle,vm::cycle)})}) {
+@Composable fun PlansScreen(s:AppUiState,vm:AppViewModel) {Page(onRefresh={vm.refresh()},refreshing=s.loading,hero={SiteHero("طرح مناسب خود را انتخاب کنید","ماهانه یا سالانه؛ مبلغ نهایی را پیش از پرداخت بررسی کنید.","طرح‌های ماهانه و سالانه • قیمت مستقیم از سرور",NativeIcons.Crown,footer={SiteTabs(listOf("monthly" to "طرح‌های ماهانه","yearly" to "طرح‌های سالانه"),s.planCycle,vm::cycle)})}) {
  FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){if(s.authenticated)TextButton(onClick=vm::paymentHistory){Text("تاریخچه پرداخت")}}
- if(vm.pendingPayment)SoftButton(onClick={vm.verifyPayment()}){Text("استعلام آخرین پرداخت")}
- val plans=s.items.filter{it.str("billing_cycle")==s.planCycle};Loading(s);ErrorNotice(s,{vm.refresh()});if(!s.loading&&s.error.isBlank()&&plans.isEmpty())EmptyState("طرحی در این دوره موجود نیست","دوره دیگری را انتخاب کنید یا بعداً دوباره بررسی کنید.");AdaptiveCards(plans,featured={it.optBoolean("is_popular")||it.optInt("is_popular")==1}) { p->if(p.str("badge_text").isNotBlank())Text(p.str("badge_text"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary);Text(p.str("name"),style=MaterialTheme.typography.titleMedium);Text(p.str("description"),style=MaterialTheme.typography.bodySmall);Text("${fa(p.optLong("price_toman"))} تومان",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("${fa(p.optInt("duration_days"))} روز اعتبار",style=MaterialTheme.typography.bodySmall);val features=p.optJSONArray("features")?:runCatching{JSONArray(p.str("features_json","[]"))}.getOrDefault(JSONArray());(0 until features.length()).forEach { i->Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Icon(NativeIcons.Check,null,Modifier.size(18.dp),tint=MaterialTheme.colorScheme.primary);Text(features.optString(i),Modifier.weight(1f))}};Action("انتخاب این اشتراک",s.posting){vm.selectPlan(p)}}
+ if(vm.pendingPayment)SoftButton(onClick={vm.verifyPayment()},enabled=!s.posting){Text("استعلام آخرین پرداخت")}
+ val plans=s.items.filter{it.str("billing_cycle")==s.planCycle};Loading(s,SkeletonKind.CARDS);ErrorNotice(s,{vm.refresh()});if(!s.loading&&s.error.isBlank()&&plans.isEmpty())EmptyState("طرحی در این دوره موجود نیست","دوره دیگری را انتخاب کنید یا بعداً دوباره بررسی کنید.",NativeIcons.Crown);AdaptiveCards(plans,featured={it.optBoolean("is_popular")||it.optInt("is_popular")==1}) { p->if(p.str("badge_text").isNotBlank())Text(p.str("badge_text"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary);Text(p.str("name"),style=MaterialTheme.typography.titleMedium);Text(p.str("description"),style=MaterialTheme.typography.bodySmall);Text("${fa(p.optLong("price_toman"))} تومان",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("${fa(p.optInt("duration_days"))} روز اعتبار",style=MaterialTheme.typography.bodySmall);val features=p.optJSONArray("features")?:runCatching{JSONArray(p.str("features_json","[]"))}.getOrDefault(JSONArray());(0 until features.length()).forEach { i->Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Icon(NativeIcons.Check,null,Modifier.size(18.dp),tint=MaterialTheme.colorScheme.primary);Text(features.optString(i),Modifier.weight(1f))}};Action("انتخاب این اشتراک",s.posting){vm.selectPlan(p)}}
 } }
 @Composable fun TicketsScreen(s:AppUiState,vm:AppViewModel) {Page{
  PageHeader("کنارتان هستیم","مشکلات حساب یا خدمات را برای تیم پشتیبانی بفرستید.")
- Button(onClick={vm.openDialog("ticket","درخواست پشتیبانی جدید")},shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=if(LocalSiteDark.current)Palette.Brass400 else Palette.Navy950,contentColor=if(LocalSiteDark.current)Palette.Navy950 else Palette.Brass300)){Icon(NativeIcons.Add,null);Text("درخواست جدید")};Loading(s);ErrorNotice(s,{vm.refresh()});if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("درخواست پشتیبانی ندارید","رمز عبور و اطلاعات بانکی را در تیکت ننویسید.")
+ Button(onClick={vm.openDialog("ticket","درخواست پشتیبانی جدید")},enabled=!s.posting,shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=if(LocalSiteDark.current)Palette.Brass400 else Palette.Navy950,contentColor=if(LocalSiteDark.current)Palette.Navy950 else Palette.Brass300)){Icon(NativeIcons.Add,null);Text("درخواست جدید")};Loading(s);ErrorNotice(s,{vm.refresh()});if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("درخواست پشتیبانی ندارید","رمز عبور و اطلاعات بانکی را در تیکت ننویسید.",NativeIcons.LifeBuoy)
+ if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("درخواستی ثبت نشده","اگر مشکلی در حساب یا خدمات دارید، همین‌جا تیکت بزنید.",NativeIcons.LifeBuoy,actionLabel="درخواست پشتیبانی جدید",onAction={vm.openDialog("ticket","درخواست پشتیبانی جدید")})
  AdaptiveCards(s.items) { t->
   Text(t.str("subject"),fontWeight=FontWeight.Medium)
   Text(mapOf("open" to "باز","answered" to "پاسخ داده‌شده","closed" to "بسته‌شده")[t.str("status")]?:t.str("status"),color=MaterialTheme.colorScheme.primary)
@@ -500,14 +634,14 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    Text(r.str("message",r.str("content",r.str("body",r.str("text")))),style=MaterialTheme.typography.bodySmall)
   }
   if(messages.size>1)TextButton(onClick={expanded=!expanded}){Text(if(expanded)"بستن گفتگو"else "نمایش گفتگو (${fa(messages.size)})")}
-  if(t.str("status")!="closed")SoftButton(onClick={vm.openDialog("reply","ارسال توضیح بیشتر",t)}){Text("ارسال پاسخ")}
+  if(t.str("status")!="closed")SoftButton(onClick={vm.openDialog("reply","ارسال توضیح بیشتر",t)},enabled=!s.posting){Text("ارسال پاسخ")}
  };Pager(s,vm)
 } }
 
 /** «قوانین و آراء مرتبط با این ماده» — همان محتوای modal وب‌سایت. */
 @Composable fun RelationsList(rows:List<JSONObject>,articleId:Long) {
  if(rows.isEmpty()) {
-  EmptyState("رابطه‌ای ثبت نشده","برای این ماده در بانک قوانین، رابطهٔ حقوقی ثبت نشده است.")
+  EmptyState("رابطه‌ای ثبت نشده","برای این ماده در بانک قوانین، رابطهٔ حقوقی ثبت نشده است.",NativeIcons.GitCompare)
   return
  }
  Text("این ماده با موارد زیر مرتبط است؛ هر رابطه را جداگانه بررسی کنید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -560,7 +694,7 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
   payments.take(8).forEach { p->
    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
     Text("${fa(p.optLong("amount_toman"))} تومان · ${p.str("status")}",Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
-    if(ApiContract.paymentAuthority(p).isNotBlank())TextButton(onClick={vm.verifyPayment(ApiContract.paymentAuthority(p))}){Text("استعلام")}
+    if(ApiContract.paymentAuthority(p).isNotBlank())TextButton(onClick={vm.verifyPayment(ApiContract.paymentAuthority(p))},enabled=!s.posting){Text("استعلام")}
    }
   }
  }
@@ -569,12 +703,18 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
 @Composable fun AppDialogs(s:AppUiState,vm:AppViewModel) {
  val d=s.dialog?:return
  androidx.compose.ui.window.Dialog(onDismissRequest=vm::closeDialog,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false,dismissOnBackPress=!s.posting,dismissOnClickOutside=!s.posting)) {
- Surface(Modifier.widthIn(max=700.dp).fillMaxWidth().padding(16.dp).imePadding().heightIn(max=720.dp),shape=RoundedCornerShape(28.dp),color=Soft.card(),border=BorderStroke(1.dp,Soft.border()),tonalElevation=0.dp,shadowElevation=if(LocalSiteDark.current)0.dp else 12.dp) {
- key(d.kind,d.data.optLong("id"),d.title){Column(Modifier.verticalScroll(rememberScrollState()).padding(22.dp),verticalArrangement=Arrangement.spacedBy(15.dp)) {
-  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(d.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold);IconButton(onClick=vm::closeDialog,enabled=!s.posting){Icon(NativeIcons.Close,"بستن پنجره")}}
+ Surface(Modifier.widthIn(max=700.dp).fillMaxWidth().padding(16.dp).imePadding().heightIn(max=720.dp),shape=RoundedCornerShape(24.dp),color=Soft.card(),border=BorderStroke(1.dp,Soft.border()),tonalElevation=0.dp,shadowElevation=if(LocalSiteDark.current)0.dp else 12.dp) {
+ key(d.kind,d.data.optLong("id"),d.title){Column {
+  // سربرگ دیالوگ سایت (SubscriptionModal/ImagePrivacyModal): نوار navy-900 تمام‌عرض + تیتر سفید
+  // + دکمهٔ بستن برنجی روی سطح سفید/۱۰ و حد لمسی ۴۴dp. قبلاً تیتر خاکستری داخل پدینگ بود.
+  Row(Modifier.fillMaxWidth().background(Palette.Navy900).padding(start=18.dp,end=10.dp,top=8.dp,bottom=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+   Text(d.title,Modifier.weight(1f).semantics{heading()},style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Black,color=Color.White)
+   IconButton(onClick=vm::closeDialog,enabled=!s.posting,modifier=Modifier.size(44.dp).background(Color(0x1AFFFFFF),SiteShape.Xl)){Icon(NativeIcons.Close,"بستن پنجره",tint=Palette.Brass300)}
+  }
+  Column(Modifier.verticalScroll(rememberScrollState()).padding(22.dp),verticalArrangement=Arrangement.spacedBy(15.dp)) {
   when(d.kind){
    "historyPreview"->{HistoryDetail(d,s,vm,Modifier.fillMaxWidth().height(440.dp))}
-   "delete"->{Text("این مورد حذف می‌شود. این عمل قابل بازگشت نیست.");Action("تأیید حذف",s.posting){vm.delete(d.data.str("kind"),d.data.optLong("id"))}}
+   "delete"->{Text("این مورد حذف می‌شود. این عمل قابل بازگشت نیست.");DangerAction("تأیید حذف",s.posting){vm.delete(d.data.str("kind"),d.data.optLong("id"))}}
    "retryChat"->{
     var checked by remember{mutableStateOf(false)}
     Text("در قطع ارتباط ممکن است پیام در سرور ثبت شده و سهمیه مصرف شده باشد. ارسال مجدد می‌تواند یک درخواست تکراری بسازد.")
@@ -604,8 +744,8 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    "ticket"->{var subject by rememberSaveable{mutableStateOf("")};var message by rememberSaveable{mutableStateOf("")};Field("موضوع",subject,{subject=it},error=s.fieldErrors["subject"],enabled=!s.posting,onEdited={vm.inputEdited("subject")},firstError=s.firstField("subject"),attempt=s.validationAttempt);Field("شرح درخواست",message,{message=it},multiline=true,error=s.fieldErrors["message"],enabled=!s.posting,onEdited={vm.inputEdited("message")},firstError=s.firstField("message"),attempt=s.validationAttempt);Text("رمز، کد ورود و اطلاعات بانکی را ننویسید.",style=MaterialTheme.typography.bodySmall);Action("ارسال درخواست",s.posting){vm.createTicket(subject,message)}}
    "reply"->{var message by rememberSaveable{mutableStateOf("")};Field("پاسخ شما",message,{message=it},multiline=true,error=s.fieldErrors["message"],enabled=!s.posting,onEdited={vm.inputEdited("message")},firstError=s.firstField("message"),attempt=s.validationAttempt);Action("ارسال پاسخ",s.posting){vm.replyTicket(d.data.optLong("id"),message)}}
    "checkout"->{var code by rememberSaveable{mutableStateOf("")};Text(d.data.str("name"),fontWeight=FontWeight.Bold);Text("مبلغ اولیه: ${fa(d.data.optLong("price_toman"))} تومان");Field("کد تخفیف (اختیاری)",code,{code=it},error=s.fieldErrors["code"],enabled=!s.posting,onEdited={vm.inputEdited("code")},firstError=s.firstField("code"),attempt=s.validationAttempt);SoftButton(onClick={vm.validateDiscount(d.data.optLong("id"),code)},enabled=!s.posting){Text("بررسی کد تخفیف")};Text("با تأیید، سفارش ایجاد می‌شود و درگاه در مرورگر امن باز خواهد شد. بازگشت به اپ به معنی پرداخت موفق نیست؛ وضعیت از سرور استعلام می‌شود.",style=MaterialTheme.typography.bodySmall);Action("تأیید و ادامه به درگاه",s.posting){vm.checkout(d.data.optLong("id"),code)}}
-   "payments"->{val payments=d.data.objects("items");if(payments.isEmpty())Text("پرداختی ثبت نشده است.");payments.forEach { p->DataResult(p);if(ApiContract.paymentAuthority(p).isNotBlank())TextButton(onClick={vm.verifyPayment(ApiContract.paymentAuthority(p))}){Text("استعلام این پرداخت")}}}
-   "result"->{DataResult(d.data);Text("وضعیت مستقیماً از سرویس دریافت شده است.",style=MaterialTheme.typography.bodySmall);TextButton(onClick={vm.verifyPayment()}){Text("استعلام دوباره")}}
+   "payments"->{val payments=d.data.objects("items");if(payments.isEmpty())Text("پرداختی ثبت نشده است.");payments.forEach { p->DataResult(p);if(ApiContract.paymentAuthority(p).isNotBlank())TextButton(onClick={vm.verifyPayment(ApiContract.paymentAuthority(p))},enabled=!s.posting){Text("استعلام این پرداخت")}}}
+   "result"->{DataResult(d.data);Text("وضعیت مستقیماً از سرویس دریافت شده است.",style=MaterialTheme.typography.bodySmall);TextButton(onClick={vm.verifyPayment()},enabled=!s.posting){Text("استعلام دوباره")}}
    // ── دور پنجم: پنجره‌های همان قابلیت‌های وب‌سایت ──
    "relations"->{RelationsList(d.data.objects("relations"),d.data.optLong("article_id"))}
    "billing"->{BillingSummary(d,s,vm)}
@@ -694,7 +834,7 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    }
   }
   ErrorNotice(s)
- }}
+ }}}
  }
  }
 }
@@ -810,9 +950,4 @@ fun dateFa(raw:String):String { if(raw.isBlank())return "تاریخ ثبت نش�
    }
   }
  }
-}
-
-/** نام قدیمی، برای سازگاری با فراخوانی‌های آزمون. */
-@Composable fun QuickQuestionForm(questions:List<JSONObject>,busy:Boolean,onSubmit:(String)->Unit) {
- QuickQuestionsWidget(questions,busy,onSubmit)
 }

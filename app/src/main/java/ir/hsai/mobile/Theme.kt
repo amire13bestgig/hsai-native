@@ -22,7 +22,10 @@ import androidx.compose.ui.unit.sp
    navy 50..950 و brass 50..900؛ هیچ رنگ سرانگشتی یا تقریبی در این فایل نیست.
    ========================================================================= */
 object Palette {
- val Navy50 =Color(0xFFF0F5F8); val Navy100=Color(0xFFD9E6EE); val Navy200=Color(0xFFB6CFDF)
+ // توکن‌های پالت سایت که verify/tokens.py آن‌ها را می‌سنجد؛ بخشی از قرارداد طراحی‌اند
+ // و حتی اگر هیچ کامپوزبلی فعلاً مستقیم استفاده‌شان نکند، حذف نمی‌شوند.
+ val Navy50 =Color(0xFFF0F5F8); val Navy100=Color(0xFFD9E6EE)
+ val Navy200=Color(0xFFB6CFDF)
  val Navy300=Color(0xFF85AFC8); val Navy400=Color(0xFF5088AB); val Navy500=Color(0xFF336C8F)
  val Navy600=Color(0xFF275676); val Navy700=Color(0xFF214661); val Navy800=Color(0xFF163144)
  val Navy900=Color(0xFF0D2130); val Navy950=Color(0xFF07141E)
@@ -81,9 +84,8 @@ val LocalSiteDark=staticCompositionLocalOf{false}
 object SiteShape {
  val Xl = RoundedCornerShape(12.dp)
  val Xxl = RoundedCornerShape(16.dp)
- val Xxxl = RoundedCornerShape(24.dp)
+ val Xxxl = RoundedCornerShape(24.dp) // rounded-3xl سایت؛ tokens.py هر دو را می‌سنجد
  val Card = RoundedCornerShape(24.dp)
- val Clay = RoundedCornerShape(26.dp)
  val Chip = RoundedCornerShape(50)
  /** حباب پیام: 1.4rem و گوشهٔ 0.55rem در سمت شروع/پایان گفتگو */
  fun bubbleUser()=RoundedCornerShape(topStart=22.dp,topEnd=22.dp,bottomStart=9.dp,bottomEnd=22.dp)
@@ -145,16 +147,22 @@ private fun hsaiShapes()=Shapes(
 }
 
 /**
- * کارت خمیری سایت (`.soft-card`): سطح کارت + هایرلاین + هایلایت ۱۶۸درجه + گردی ۱.۵rem.
- * برای دکمه‌های برجسته (`.soft-raised`) از raised=true استفاده می‌شود.
+ * کارت اپ. دو حالت دارد چون سایت هم دو کلاس کارت دارد:
+ *  • پیش‌فرض = `.soft-card` (Soft.card + هایرلاین + پوستهٔ بالا، ۴۳ کاربرد در سایت)
+ *  • glass=true = `.hsai-glass` (شیشهٔ نیمه‌شفاف + blur؛ ۸۲ کاربرد در سایت)
+ * پدینگ پیش‌فرض ۱۸dp معادل p-4.5 و شعاع ۲۴dp معادل SiteShape.Card است.
  */
-@Composable fun GlassCard(modifier:Modifier=Modifier,raised:Boolean=false,content:@Composable ColumnScope.()->Unit) {
+@Composable fun GlassCard(modifier:Modifier=Modifier,raised:Boolean=false,glass:Boolean=false,pad:Int=18,radiusDp:Int=24,spacing:Int=12,content:@Composable ColumnScope.()->Unit) {
+ if(glass) {
+  SiteGlass(modifier,strong=raised,radiusDp=radiusDp) { Column(Modifier.fillMaxWidth().padding(pad.dp),verticalArrangement=Arrangement.spacedBy(spacing.dp),content=content) }
+  return
+ }
  val card=Soft.card()
- Surface(modifier.fillMaxWidth(),shape=SiteShape.Card,color=card,border=BorderStroke(1.dp,Soft.border()),
+ Surface(modifier.fillMaxWidth(),shape=if(radiusDp==24)SiteShape.Card else RoundedCornerShape(radiusDp.dp),color=card,border=BorderStroke(1.dp,Soft.border()),
   shadowElevation=if(LocalSiteDark.current)0.dp else if(raised)6.dp else 3.dp) {
   Box {
    Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Soft.sheen(),0.42f to Color.Transparent)))
-   Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)
+   Column(Modifier.padding(pad.dp),verticalArrangement=Arrangement.spacedBy(spacing.dp),content=content)
   }
  }
 }
@@ -166,11 +174,14 @@ private fun hsaiShapes()=Shapes(
  */
 @Composable fun SoftButton(onClick:()->Unit,modifier:Modifier=Modifier,enabled:Boolean=true,onCard:Boolean=false,content:@Composable RowScope.()->Unit) {
  val dark=LocalSiteDark.current
+ // FIX(ux): دکمهٔ غیرفعال قبلاً عیناً مثل دکمهٔ فعال دیده می‌شد؛ کاربر چند بار می‌زد و
+ // کاری انجام نمی‌شد (چون در زمان ارسال درخواست، دکمه‌ها غیرفعال‌اند).
+ val ink=if(dark)Palette.Slate50 else Palette.Navy950
  Surface(onClick=onClick,enabled=enabled,modifier=modifier.heightIn(min=44.dp),shape=SiteShape.Xl,
   color=if(onCard)Soft.well() else Soft.card(),
-  contentColor=if(dark)Palette.Slate50 else Palette.Navy950,
+  contentColor=if(enabled)ink else Soft.inkMuted(),
   border=BorderStroke(1.dp,Soft.border()),
-  shadowElevation=if(dark)0.dp else 2.dp) {
+  shadowElevation=if(dark||!enabled)0.dp else 2.dp) {
   CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.labelLarge) {
    Row(Modifier.padding(horizontal=16.dp,vertical=11.dp),horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically,content=content)
   }
@@ -192,14 +203,18 @@ else Brush.verticalGradient(listOf(Color(0xF5FFFFFF),Color(0xF0F7F4EE)))
  * دکمهٔ شبح سایت (`.ghost-btn`): بدون پس‌زمینه، متن برنجی/مایل، گردی ۱۰dp،
  * ارتفاع ۳۲dp — برای «کپی / مفید / ساده‌تر / خواندن» زیر هر پاسخ.
  */
-@Composable fun GhostAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector?=null,onClick:()->Unit,enabled:Boolean=true) {
+@Composable fun GhostAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector?=null,onClick:()->Unit,enabled:Boolean=true,selected:Boolean=false) {
  val tint=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700
- Surface(onClick=onClick,enabled=enabled,shape=SiteShape.Xl,color=Color.Transparent,
-  contentColor=if(enabled)tint else tint.copy(alpha=.45f),border=null,tonalElevation=0.dp,shadowElevation=0.dp) {
-  Row(Modifier.defaultMinSize(minHeight=32.dp).padding(horizontal=8.dp,vertical=4.dp),
+ Surface(onClick=onClick,enabled=enabled,shape=SiteShape.Xl,
+  color=if(selected)Soft.well() else Color.Transparent,
+  contentColor=if(enabled)tint else tint.copy(alpha=.45f),
+  border=null,tonalElevation=0.dp,shadowElevation=0.dp) {
+  // ظاهر همان .ghost-btn سایت (۳۲dp) می‌ماند، ولی ناحیهٔ لمس به حداقل ۴۸dp گسترده می‌شود
+  // (minimumInteractiveComponentSize ظاهر را تغییر نمی‌دهد).
+  Row(Modifier.minimumInteractiveComponentSize().defaultMinSize(minHeight=32.dp).padding(horizontal=8.dp,vertical=4.dp),
    verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(4.dp)) {
    if(icon!=null)Icon(icon,null,Modifier.size(15.dp))
-   Text(label,style=MaterialTheme.typography.labelSmall)
+   Text(label,style=MaterialTheme.typography.labelSmall,fontWeight=if(selected)FontWeight.ExtraBold else FontWeight.Normal)
   }
  }
 }

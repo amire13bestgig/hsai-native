@@ -4,7 +4,6 @@ package ir.hsai.mobile
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -12,6 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,7 +30,12 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
 
 @Composable fun NativeApp(vm:AppViewModel,onImage:()->Unit,onCamera:()->Unit,onDictate:()->Unit,onEditImage:()->Unit,snackbar:SnackbarHostState) {
  val s by vm.state.collectAsStateWithLifecycle()
- CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+ // P2-4: اندازهٔ متن انتخابی کاربر همان تایپوگرافی سایت را بزرگ/کوچک می‌کند
+ // (فقط ضریب fontScale؛ تراکم پiksلی و همهٔ رنگ‌ها و فاصله‌های dp دست‌نخورده می‌مانند).
+ val baseDensity=androidx.compose.ui.platform.LocalDensity.current
+ val scaledDensity=remember(baseDensity,s.textScale){androidx.compose.ui.unit.Density(baseDensity.density,baseDensity.fontScale*s.textScale)}
+ LaunchedEffect(Unit){vm.updateSessionClock()}
+ CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl,androidx.compose.ui.platform.LocalDensity provides scaledDensity) {
   HsaiTheme(if(s.entryComplete)s.dark else false) {
    key(vm.sessionVersion,s.authenticated,s.user.optLong("id")) {
    if(!s.initialized) {
@@ -58,11 +66,15 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
          // نه سرفیس یک‌رنگ M3؛ حالا همان لایه با همان گرادیان ساخته می‌شود.
          Column(Modifier.background(clayBarBrush())) {
          Box(Modifier.fillMaxWidth().height(1.5.dp).background(clayBarEdge()))
-         TopAppBar(title={Text(if(s.screen==Screen.CHAT&&s.conversationId==null)"گفتگوی حقوقی جدید"else s.screen.title,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)},
-          navigationIcon={if(layout==WorkspaceLayout.COMPACT)IconButton(onClick={scope.launch{drawer.open()}},modifier=Modifier.padding(start=6.dp).size(40.dp).background(Soft.well(),SiteShape.Xl)){Icon(NativeIcons.Menu,"منوی اصلی",Modifier.size(20.dp))}},
+         TopAppBar(title={Text(if(s.screen==Screen.CHAT&&s.conversationId==null)"گفتگوی حقوقی جدید"else s.screen.title,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,modifier=Modifier.semantics{heading()})},
+          // سایت: `hsai-tap` = حداقل ۲٫۷۵rem (۴۴dp) — دکمه‌های ۴۰dp قبلی زیر حد لمسی بودند.
+          // رنگ هم عیناً از سایت: bg-slate-100 dark:bg-white/10 (نه Soft.well).
+          navigationIcon={if(layout==WorkspaceLayout.COMPACT)IconButton(onClick={scope.launch{drawer.open()}},modifier=Modifier.padding(start=6.dp).size(44.dp).background(if(s.dark)Color(0x1AFFFFFF) else Palette.Slate100,SiteShape.Xl)){Icon(NativeIcons.Menu,"منوی اصلی",Modifier.size(20.dp))}},
           actions={
-           IconButton(onClick={vm.navigate(Screen.ACCOUNT)},modifier=Modifier.size(40.dp).background(Soft.well(),SiteShape.Xl)){Icon(NativeIcons.PersonOutline,if(s.authenticated)"حساب کاربری"else "ورود یا عضویت",Modifier.size(20.dp))}
-           IconButton(onClick=vm::toggleTheme,modifier=Modifier.padding(horizontal=4.dp).size(40.dp).background(Soft.well(),SiteShape.Xl)){Icon(if(s.dark)NativeIcons.LightMode else NativeIcons.DarkMode,"تغییر حالت روشن و تیره",Modifier.size(20.dp))}
+           IconButton(onClick={vm.navigate(Screen.ACCOUNT)},modifier=Modifier.size(44.dp).background(if(s.dark)Color(0x1AFFFFFF) else Palette.Slate100,SiteShape.Xl)){Icon(NativeIcons.PersonOutline,if(s.authenticated)"حساب کاربری"else "ورود یا عضویت",Modifier.size(20.dp))}
+           // ThemeToggle سایت: border-slate-200 bg-white text-slate-700 / dark: border-white/15 bg-white/10،
+           // آیکون Moon در روشن (navy-700) و Sun در تیره (brass-300).
+           IconButton(onClick=vm::toggleTheme,modifier=Modifier.padding(horizontal=4.dp).size(44.dp).border(1.dp,if(s.dark)Color(0x26FFFFFF) else Palette.Slate200,SiteShape.Xl).background(if(s.dark)Color(0x1AFFFFFF) else Color.White,SiteShape.Xl)){Icon(if(s.dark)NativeIcons.LightMode else NativeIcons.DarkMode,if(s.dark)"روشن‌کردن پوسته"else "تاریک‌کردن پوسته",Modifier.size(18.dp),tint=if(s.dark)Palette.Brass300 else Palette.Navy700)}
           },colors=TopAppBarDefaults.topAppBarColors(containerColor=Color.Transparent,titleContentColor=Soft.ink(),actionIconContentColor=Soft.ink()))
          Box(Modifier.fillMaxWidth().height(1.dp).background(Soft.hairline()))
          }
@@ -75,6 +87,9 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
           }
          }
          if(!s.online)Surface(color=MaterialTheme.colorScheme.errorContainer){Column(Modifier.fillMaxWidth().padding(12.dp)){Text("اتصال برقرار نشد؛ اینترنت را بررسی و دوباره تلاش کنید.");TextButton(onClick={vm.checkConnection()},enabled=!s.checkingConnection){Text(if(s.checkingConnection)"در حال بررسی اتصال…"else "بررسی اتصال")}}}
+         // دور نهم: بنر نشست (پیش از خطای ۴۰۱) و بنر دادهٔ ذخیره‌شده (حالت بی‌اتصال)
+         SessionBanner(s,vm)
+         StaleBanner(s,vm)
          if(s.posting&&s.screen!=Screen.CHAT)LinearProgressIndicator(Modifier.fillMaxWidth())
          when(s.screen) {
           Screen.CHAT->ChatScreen(s,vm,onImage,onCamera,onDictate,onEditImage)
@@ -87,6 +102,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
           Screen.DEADLINES->DeadlineScreen(s,vm)
           Screen.PLANS->PlansScreen(s,vm)
           Screen.TICKETS->TicketsScreen(s,vm)
+          Screen.SETTINGS->SettingsScreen(s,vm)
          }
         }
        }
@@ -115,7 +131,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
   } else Column(Modifier.statusBarsPadding().navigationBarsPadding()) {
    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-     BrandEmblem(32.dp);Column{Text("حق‌سنج",fontWeight=FontWeight.Black);Text("مشاهده وب‌سایت اصلی",style=MaterialTheme.typography.labelSmall,color=SiteDesign.Brass300,modifier=Modifier.clickable{vm.openExternal("https://hsai.ir")})}
+     BrandEmblem(32.dp);Column{Text("حق‌سنج",fontWeight=FontWeight.Black);Text("مشاهده وب‌سایت اصلی",style=MaterialTheme.typography.labelSmall,color=SiteDesign.Brass300,modifier=Modifier.heightIn(min=44.dp).wrapContentHeight(Alignment.CenterVertically).clickable(role=Role.Button){vm.openExternal("https://hsai.ir")})}
     }
     Button(onClick={vm.newChat();select(Screen.CHAT)},modifier=Modifier.fillMaxWidth(),shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=SiteGold,contentColor=SiteNavy)) {Icon(NativeIcons.Add,null,Modifier.size(18.dp));Spacer(Modifier.width(6.dp));Text("گفتگوی جدید",fontWeight=FontWeight.Bold)}
     Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
@@ -146,7 +162,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
     // سهمیهٔ رایگان ماهانه، و ماندهٔ «گفتگو / پیام / سند». همه از همان پاسخ‌های سرور.
     Surface(onClick={select(Screen.PLANS)},modifier=Modifier.fillMaxWidth(),shape=SiteShape.Xl,color=SiteGold.copy(alpha=.15f),border=BorderStroke(1.dp,SiteGold.copy(alpha=.3f))) {
      Row(Modifier.padding(horizontal=12.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-      Icon(NativeIcons.WorkspacePremium,null,Modifier.size(17.dp),tint=SiteGold)
+      Icon(NativeIcons.Crown,null,Modifier.size(17.dp),tint=SiteGold)
       Text(s.subscription.str("plan_name",if(s.authenticated)"تهیه یا تمدید اشتراک"else "ورود و تهیهٔ اشتراک"),Modifier.weight(1f),style=MaterialTheme.typography.labelLarge,color=SiteGold,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
       if(s.subscription.has("days_remaining"))Text(fa(s.subscription.optInt("days_remaining"))+" روز",style=MaterialTheme.typography.labelSmall,color=Palette.OkBright)
      }
@@ -169,6 +185,7 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
      }
     }
     SidebarLink(if(s.authenticated)"حساب کاربری، رمز عبور و فاکتورها"else "ورود / عضویت",NativeIcons.PersonOutline,Modifier.fillMaxWidth()){select(Screen.ACCOUNT)}
+    SidebarLink("تنظیمات و داده‌های گوشی",NativeIcons.Settings,Modifier.fillMaxWidth()){select(Screen.SETTINGS)}
     Text(s.user.str("full_name",if(s.authenticated)"حساب حق‌سنج"else "کاربر مهمان"),style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold)
    }
   }
@@ -183,14 +200,20 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
 }
 
 /** Non-lazy grid inside the page's one vertical scroller; stable at large font scales. */
-@Composable fun <T> AdaptiveCards(items:List<T>,minWidth:androidx.compose.ui.unit.Dp=300.dp,featured:(T)->Boolean={false},content:@Composable ColumnScope.(T)->Unit) {
+@Composable fun <T> AdaptiveCards(items:List<T>,minWidth:androidx.compose.ui.unit.Dp=300.dp,featured:(T)->Boolean={false},onDelete:((T)->Unit)?=null,deleteLabel:(T)->String={"حذف"},content:@Composable ColumnScope.(T)->Unit) {
  val fontScale=androidx.compose.ui.platform.LocalDensity.current.fontScale
  BoxWithConstraints(Modifier.fillMaxWidth()) {
   val columns=(maxWidth.value/(minWidth.value*fontScale.coerceAtLeast(1f))).toInt().coerceIn(1,3)
   Column(verticalArrangement=Arrangement.spacedBy(14.dp)) {
    items.chunked(columns).forEach { row ->
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(14.dp)) {
-     row.forEach { item -> if(featured(item))FeaturedPlan(Modifier.weight(1f).fillMaxHeight()){content(item)}else GlassCard(Modifier.weight(1f).fillMaxHeight()){content(item)} }
+     row.forEach { item ->
+      // P2-1: اگر onDelete داده شود، هر کارت با کشیدن (به‌سمت پایان خط) درخواست حذف می‌دهد؛
+      // خودِ حذف فقط با دیالوگ تأیید انجام می‌شود.
+      val body:@Composable (Modifier)->Unit = { m->if(featured(item))FeaturedPlan(m.fillMaxHeight()){content(item)}else GlassCard(m.fillMaxHeight()){content(item)} }
+      if(onDelete==null)body(Modifier.weight(1f))
+      else SwipeToDelete(label=deleteLabel(item),enabled=true,onDelete={onDelete(item)},modifier=Modifier.weight(1f).fillMaxHeight()){body(Modifier.fillMaxSize())}
+     }
      repeat(columns-row.size){Spacer(Modifier.weight(1f))}
     }
    }

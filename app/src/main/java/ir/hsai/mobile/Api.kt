@@ -22,6 +22,8 @@ const val STREAM_IDLE_SECONDS: Long = 75L
 const val STREAM_IDLE_MESSAGE: String = "پاسخ سرور قطع شد (بی‌حرکتی بیش از حد). لطفاً مجدداً ارسال کنید."
 /** نشانهٔ داخلی: مسیر قدیمی `/api/chat/stream` روی این استقرار نیست. */
 const val LEGACY_ROUTE_MISSING: String = "LEGACY_ROUTE_MISSING"
+/** ریشهٔ میزبان API — جریان‌های مرورگری (ورود گوگل) روی همین دامنه باز می‌شوند. */
+const val API_ORIGIN: String = "https://hsai.ir"
 data class StreamEvent(val name: String, val data: JSONObject)
 
 /** Only the official API is used by the app. The alternate constructor base is for JVM tests. */

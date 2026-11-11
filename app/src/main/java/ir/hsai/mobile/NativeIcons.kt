@@ -44,4 +44,43 @@ val CalendarMonth=icon("CalendarMonth","M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5
 val Lock=icon("Lock","M6 10h12v11H6V10zM8 10V6a4 4 0 0 1 8 0v4M12 14v3")
 val Mail=icon("Mail","M3 5h18v14H3V5zM3 5l9 7 9-7")
 val Phone=icon("Phone","M7 3H4a1 1 0 0 0-1 1 17 17 0 0 0 17 17 1 1 0 0 0 1-1v-3l-5-2-2 3a15 15 0 0 1-8-8l3-2-2-5z")
+
+// ── دور ششم: آیکون‌های lucide که سایت در صفحات خودش استفاده می‌کند و اپ نداشت ──
+val Search=icon("Search","M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16M21 21 16.7 16.7")
+val GitCompare=icon("GitCompare","M8 3 4 7l4 4M4 7h12a4 4 0 0 1 4 4v1M16 21l4-4-4-4M20 17H8a4 4 0 0 1-4-4v-1")
+val HelpCircle=icon("HelpCircle","M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 3.5M12 17h.01")
+val CalendarClock=icon("CalendarClock","M21 11V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6M16 2v4M8 2v4M3 10h18M16 22a4 4 0 1 0 0-8 4 4 0 0 0 0 8M16 16v2l1.5 1")
+val Crown=icon("Crown","M3 17h18l-1.4-8.4-4.6 3.6L12 6 9 12.2 4.4 8.6 3 17M3 21h18")
+val LifeBuoy=icon("LifeBuoy","M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M5.6 5.6 8.5 8.5m7 7 2.9 2.9m0-12.8-2.9 2.9m-7 7-2.9 2.9")
+val Wallet=icon("Wallet","M3 8a2 2 0 0 1 2-2h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V8zm17 4h-4a2 2 0 0 0 0 4h4")
+val Home=icon("Home","M3 11 12 3l9 8M5 10v10h14V10M10 20v-6h4v6")
+val Heart=icon("Heart","M12 20S4 15.3 4 10.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 8 2.5C20 15.3 12 20 12 20z")
+val Briefcase=icon("Briefcase","M4 7h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zm5 0V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 12h18")
+val AlertTriangle=icon("AlertTriangle","M12 3 2 20h20L12 3zm0 6v5m0 3h.01")
+val Users=icon("Users","M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M14 4a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8")
+val Clock=icon("Clock","M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2")
+val Scale=icon("Scale","M12 3v18M7 21h10M5 7h14M12 7 5 7l-2 6a4 4 0 0 0 8 0L9 7m3 0 7 0 2 6a4 4 0 0 1-8 0l2-6")
+val AlertCircle=icon("AlertCircle","M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 8v5m0 3h.01")
+val HeartHandshake=icon("HeartHandshake","M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7zM12 5 9 8a2.2 2.2 0 0 0 3 3l2-2a2.2 2.2 0 0 1 3 3l-2 2a2.2 2.2 0 0 1-3 0")
+val ShieldCheck=icon("ShieldCheck","M12 3 4 6v6c0 4.5 3.4 7.6 8 9 4.6-1.4 8-4.5 8-9V6l-8-3zM9 12l2 2 4-4")
+/** نشان چهاررنگ گوگل — همان SVG صفحهٔ ورود سایت (AuthPage.GoogleIcon)، نه آیکون خطی. */
+private fun brand(name:String,vararg parts:Pair<String,Int>) =
+ ImageVector.Builder(name,24.dp,24.dp,24f,24f).apply{parts.forEach{(d,c)->addPath(pathData=PathParser().parsePathString(d).toNodes(),fill=SolidColor(Color(c)))};}.build()
+val GoogleMark=brand("GoogleMark",
+ "M12 10.2v3.9h5.4c-.2 1.2-.9 2.3-2 3l3.2 2.5c1.9-1.7 3-4.3 3-7.3 0-.7-.1-1.4-.2-2.1H12z" to 0xFFEA4335.toInt(),
+ "M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.2H3.1v2.6C4.7 19.8 8.1 22 12 22z" to 0xFF34A853.toInt(),
+ "M6.4 13.9c-.2-.6-.3-1.2-.3-1.9s.1-1.3.3-1.9V7.5H3.1C2.4 8.9 2 10.4 2 12s.4 3.1 1.1 4.5l3.3-2.6z" to 0xFFFBBC05.toInt(),
+ "M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 3 14.7 2 12 2 8.1 2 4.7 4.2 3.1 7.5l3.3 2.6c.8-2.4 3-4.2 5.6-4.2z" to 0xFF4285F4.toInt())
+val ScanSearch=icon("ScanSearch","M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3m0 8v3a1 1 0 0 1-1 1h-3m-8 0H5a1 1 0 0 1-1-1v-3M11 14a3 3 0 1 0 0-6 3 3 0 0 0 0 6M13.5 13.5 16 16")
+val FileSignature=icon("FileSignature","M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h5M14 2v6h6M8 13h5M8 17h3M14 20c1.2-3 2.4 1.2 3.6-.8s1.2 1 2.4-.2")
+val Download=icon("Download","M12 3v12m-5-5 5 5 5-5M5 21h14")
+val CreditCard=icon("CreditCard","M3 7h18v12H3V7zm0 4h18M7 15h3")
+val Library=icon("Library","M4 4h4v16H4V4zm6 0h4v16h-4V4zm7 .5 3 15.5")
+val CheckCircle=icon("CheckCircle","M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12l2.5 2.5 4.5-5")
+val ShieldAlert=icon("ShieldAlert","M12 3 4 6v6c0 4.5 3.4 7.6 8 9 4.6-1.4 8-4.5 8-9V6l-8-3zm0 5v5m0 3h.01")
+// ── دور نهم: آیکون‌هایی که پیشنهادهای UI لازم داشتند ──
+val Settings=icon("Settings","M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 5 8.9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z")
+val ArrowDown=icon("ArrowDown","M12 4v16M5 13l7 7 7-7")
+val FilterList=icon("FilterList","M3 6h18M6 12h12M10 18h4")
 }
+

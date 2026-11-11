@@ -64,9 +64,18 @@ object ApiContract {
   return data.objects("quick_questions").ifEmpty{v?.objects("quick_questions").orEmpty()}.ifEmpty{v?.optJSONObject("intake")?.objects("questions").orEmpty()}
  }
  fun paymentAuthority(payment:JSONObject)=payment.str("authority",payment.str("authority_code"))
+ /**
+  * آیا پرداخت قطعاً تسویه شده است؟ فقط برای پاک‌کردن «شناسهٔ پرداخت معلق» استفاده می‌شود؛
+  * وضعیت نامشخص (pending/unknown) عمداً تسویه‌شده حساب نمی‌شود.
+  */
+ fun paymentSettled(data:JSONObject):Boolean {
+  val payment=data.optJSONObject("payment")?:data.optJSONObject("data")?:data
+  val status=payment.str("status",data.str("status")).lowercase()
+  if(status in setOf("paid","settled","success","successful","verified","completed","active"))return true
+  return payment.optBoolean("paid",false)||data.optBoolean("paid",false)
+ }
  /** شناسهٔ گفتگو در هر دو قرارداد: `/api/v1` مقدار تخت می‌دهد و `/api/chat` شیء `conversation`. */
  fun conversationId(data:JSONObject):Long? = data.safeLong("conversation_id") ?: data.optJSONObject("conversation")?.safeLong("id")
- fun isNewConversation(data:JSONObject)=data.optBoolean("is_new_conversation",false)
  /** رویداد `quota` فقط در قرارداد وب هست: سهمیهٔ رایگان پس از هر پیام. */
  fun quotaEvent(data:JSONObject):JSONObject? = freeQuota(data)
   fun stageTitle(data:JSONObject)=data.str("title",data.str("message",data.optJSONObject("stage")?.str("title").orEmpty()))
@@ -116,8 +125,6 @@ object ApiContract {
  fun citizenGuide(v:JSONObject?):JSONObject? = v?.optJSONObject("citizen_guide")?.takeIf{it.length()>0}
  fun quickSummary(v:JSONObject?):JSONObject? = citizenGuide(v)?.optJSONObject("quick_summary")?.takeIf{it.length()>0}
  /** متن بازنویسی‌شدهٔ «ساده‌تر بگو» — همان کلیدی که سایت رندر می‌کند. */
- fun simplifiedContent(data:JSONObject):String = data.optJSONObject("verification")?.str("simplified_content").orEmpty()
-  .ifBlank { verification(data)?.str("simplified_content").orEmpty() }
  fun riskScore(v:JSONObject?):Int = v?.optInt("risk_score",0) ?: 0
  fun redFlags(v:JSONObject?):List<JSONObject> = v?.objects("red_flags").orEmpty()
  /** شمارش استنادهای واقعی برای منطق «برچسب حالت» مثل سایت. */
@@ -212,10 +219,40 @@ object ApiContract {
  /** برگهٔ دست‌دهی: امضاشدهٔ base64url با یک نقطه؛ فقط شکل آن بررسی می‌شود (امضا را سرور می‌سنجد). */
  fun handoffTokenShapeOk(token:String):Boolean = token.length in 16..1024 && token.none{it.isWhitespace()}
  /** نشانی شروع ورود با گوگل در مرورگر — همان قراردادی که سرور وب برای اپ می‌شناسد. */
- fun googleStartUrl(nonce:String):String =
-  "https://hsai.ir/api/auth/google/start?app_return=1&app_nonce="+java.net.URLEncoder.encode(nonce,"UTF-8")+"&next=%2Fapp"
+ /**
+  * نشانی مرورگری ورود با گوگل برای اپ — مسیر اختصاصی API، جدا از جریان وب‌سایت.
+  * سرور پس از تأیید گوگل به `hsai://auth/google?handoff=…&nonce=…` برمی‌گردد و
+  * اندروید خودکار همین اپ را باز می‌کند (intent-filter در AndroidManifest).
+  */
+fun googleStartUrl(apiOrigin:String,nonce:String,path:String=GOOGLE_APP_SIGNIN_PATH):String =
+  apiOrigin.trimEnd('/')+"/"+path.trim('/')+"?nonce="+java.net.URLEncoder.encode(nonce,"UTF-8")
+/** مسیر پیش‌فرض جریان مرورگری؛ اگر سرور مسیر دیگری داد، همان استفاده می‌شود. */
+const val GOOGLE_APP_SIGNIN_PATH:String = "/api/auth/google/app/start"
+/** دکمهٔ گوگل فقط وقتی معنا دارد که جریان مرورگری روی سرور کامل باشد (client_id + secret). */
+fun googleAppSignInEnabled(config:JSONObject):Boolean =
+  config.optBoolean("google_redirect_enabled",config.optBoolean("google_sign_in_enabled",false))
+/** مسیر شروع ورود که سرور اعلام کرده (پیش‌فرض همان قرارداد بالا). */
+fun googleAppSignInPath(config:JSONObject):String =
+  config.str("google_app_signin_path",GOOGLE_APP_SIGNIN_PATH).ifBlank{GOOGLE_APP_SIGNIN_PATH}
 
- data class HandoffLink(val handoff:String,val nonce:String,val error:String,val linkToken:String,val email:String)
+ /** عمر مجاز nonce ورود گوگل روی دستگاه (۱۰ دقیقه). */
+const val OAUTH_NONCE_TTL_SECONDS:Long = 600
+/** رشتهٔ ذخیره‌شده: «nonce:timestamp» — قابل آزمون و بدون وابستگی اندروید. */
+fun encodeOauthNonce(nonce:String,nowMillis:Long):String = nonce+":"+nowMillis
+/** nonce تازه را برمی‌گرداند و در غیر این صورت رشتهٔ خالی (منقضی/خراب/خالی). */
+fun decodeOauthNonce(stored:String,nowMillis:Long):String {
+  val raw=stored.trim()
+  if(raw.isEmpty())return ""
+  val parts=raw.split(':')
+  if(parts.size!=2)return ""
+  val nonce=parts[0].trim();val ts=parts[1].trim().toLongOrNull()?:return ""
+  if(!handoffNonceValid(nonce))return ""
+  val age=(nowMillis-ts)/1000
+  if(age<0||age>OAUTH_NONCE_TTL_SECONDS)return ""
+  return nonce
+}
+
+data class HandoffLink(val handoff:String,val nonce:String,val error:String,val linkToken:String,val email:String)
  /**
   * تحلیل پیوند بازگشتی `hsai://auth/google?...` که مرورگر به اپ می‌دهد.
   * بدون Uri اندروید نوشته شده تا در آزمون JVM هم اجرا شود.

@@ -15,10 +15,14 @@ import java.util.Locale
  * هیچ مجوزی لازم ندارد؛ سرویس گفتار خودِ سیستم است.
  */
 object Speaker {
+    /** آیا همین حالا چیزی در حال خواندن است؟ (برای toggle دکمهٔ «خواندن/توقف») */
+    val speaking = kotlinx.coroutines.flow.MutableStateFlow(false)
     private var engine: TextToSpeech? = null
     private var ready = false
     private var failed = false
     private var pending: Pair<String, () -> Unit>? = null
+    /** سرعت خواندن (۱٫۰ = معمولی). از صفحهٔ تنظیمات قابل تغییر است. */
+    @Volatile var rate: Float = 1f
 
     private fun ensure(context: Context) {
         if (engine != null || failed) return
@@ -57,7 +61,18 @@ object Speaker {
     }
 
     private fun queue(text: String) {
-        engine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "hsai-answer")
+        val tts = engine ?: return
+        tts.setSpeechRate(rate.coerceIn(0.7f, 1.6f))
+        // FIX(ux): «توقف خواندن» قبلاً همیشه دیده می‌شد حتی وقتی چیزی خوانده نمی‌شد،
+        // و پایان خودکار خواندن هم وضعیت دکمه را برنمی‌گرداند. اکنون وضعیت واقعی گزارش می‌شود.
+        tts.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) { speaking.value = true }
+            override fun onDone(utteranceId: String?) { speaking.value = false }
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) { speaking.value = false }
+        })
+        speaking.value = true
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "hsai-answer")
     }
 
     /** متن را می‌خواند؛ اگر گفتار در دسترس نباشد onUnavailable صدا زده می‌شود. */
@@ -71,6 +86,7 @@ object Speaker {
     }
 
     fun stop() {
+        speaking.value = false
         engine?.stop()
     }
 

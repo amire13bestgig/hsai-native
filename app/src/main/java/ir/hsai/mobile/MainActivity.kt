@@ -171,6 +171,6 @@ class MainActivity:ComponentActivity() {
   // FIX(app-parity): بازگشت از «ورود با گوگل». برگهٔ دست‌دهی فقط با nonce همین دستگاه نقد می‌شود.
   if(i?.data?.scheme=="hsai"&&i.data?.host=="auth"){val link=i.dataString.orEmpty();lifecycleScope.launch{vm.state.filter{it.initialized}.first();vm.completeGoogleSignIn(link)}}}
  override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);handleIntent(intent)}
- override fun onResume(){super.onResume();if(awaitingPayment){awaitingPayment=false;if(vm.state.value.entryComplete)vm.verifyPayment()else vm.loginRequired(Screen.PLANS)}}
+ override fun onResume(){super.onResume();vm.updateSessionClock();if(awaitingPayment){awaitingPayment=false;if(vm.state.value.entryComplete)vm.verifyPayment()else vm.loginRequired(Screen.PLANS)}}
  override fun onDestroy(){runCatching{network.unregisterNetworkCallback(networkCallback)};Speaker.shutdown();super.onDestroy()}
 }

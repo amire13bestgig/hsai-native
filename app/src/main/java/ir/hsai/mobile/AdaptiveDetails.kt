@@ -46,7 +46,8 @@ import org.json.JSONObject
  Column(modifier,verticalArrangement=Arrangement.spacedBy(12.dp)) {
   Button(shape=SiteShape.Xl,onClick={vm.openConversation(d.data.optLong("id"))},enabled=!s.posting){Text("ادامه گفتگو")}
   Text("پیش‌نمایش فقط‌خواندنی است؛ برای پاسخ، ادامه گفتگو را انتخاب کنید.",style=MaterialTheme.typography.bodySmall)
-  LazyColumn(Modifier.weight(1f).fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){itemsIndexed(messages){_,message->MessageCard(message,true,vm)}}
+  if(s.posting&&messages.isEmpty())Loading(s,SkeletonKind.CHAT)
+  else LazyColumn(Modifier.weight(1f).fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){itemsIndexed(messages){_,message->MessageCard(message,true,vm)}}
  }
 }
 @Composable fun ColumnScope.DocumentDetailContent(d:AppDialog,s:AppUiState,vm:AppViewModel) {
@@ -65,5 +66,10 @@ DocumentPaper(d.data.str("content","متن سند موجود نیست."));Text("
  }
 }
 @Composable fun ColumnScope.ArticleDetailContent(d:AppDialog,vm:AppViewModel) {
+ var read by remember{mutableStateOf(vm.state.value.readMode)}
+ // P3-4: «حالت مطالعه» متن رسمی را با فاصلهٔ خط بازتر نشان می‌دهد و بخش‌های کمکی را کنار می‌گذارد.
+ ArticleReadMode(on=read,onToggle={read=!read;vm.setReadMode(read)},officialText=d.data.str("official_text"),explanation=d.data.str("plain_explanation"))
+ if(!read) {
 SelectionContainer{Text(d.data.str("official_text"))};if(d.data.str("plain_explanation").isNotBlank())Text(d.data.str("plain_explanation"));if(d.data.has("practical_tips"))DataResult(JSONObject().put("practical_tips",d.data.opt("practical_tips")));TextButton(onClick={vm.copy(d.data.str("official_text"))}){Text("کپی متن قانون")};SoftButton(onClick={vm.askAboutArticle(d.data)}){Text("پرسش درباره این ماده")};if(d.data.optLong("id")>0)SoftButton(onClick={vm.articleRelations(d.data.optLong("id"))}){Text("قوانین و آراء مرتبط")}
+ }
 }

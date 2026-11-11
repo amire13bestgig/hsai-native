@@ -8,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
@@ -16,6 +15,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 
@@ -69,12 +70,28 @@ object SiteDesign {
  * مقدار شفافیت و رنگ‌ها عیناً از index.css گرفته شده‌اند؛ متن فرزند تار نمی‌شود
  * (backdrop-filter مرورگر در بومی معادل ندارد و شبیه‌سازی آن خوانایی را کم می‌کرد).
  */
-@Composable fun SiteGlass(modifier:Modifier=Modifier,strong:Boolean=false,onDark:Boolean=false,content:@Composable ()->Unit) {
+/**
+ * `.hsai-glass-soft` سایت: سطوح کوچک درون چت (چیپ پیشنهادها و پنل تیکت).
+ * روشن: rgba(248,247,244,.72) + حاشیه rgba(15,23,42,.07)
+ * تیره: rgba(255,255,255,.05) + حاشیه rgba(255,255,255,.1)
+ */
+val SoftGlassLight=Color(0xB8F8F7F4)
+val SoftGlassDark=Color(0x0DFFFFFF)
+val SoftGlassLineLight=Color(0x120F172A)
+val SoftGlassLineDark=Color(0x1AFFFFFF)
+
+@Composable fun SiteGlass(modifier:Modifier=Modifier,strong:Boolean=false,onDark:Boolean=false,soft:Boolean=false,radiusDp:Int=if(soft)12 else 24,content:@Composable ()->Unit) {
  val dark=LocalSiteDark.current
+ if(soft) {
+  Surface(modifier=modifier,color=if(dark)SoftGlassDark else SoftGlassLight,
+   shape=RoundedCornerShape(radiusDp.dp),tonalElevation=0.dp,shadowElevation=0.dp,
+   border=BorderStroke(1.dp,if(dark)SoftGlassLineDark else SoftGlassLineLight)) {content()}
+  return
+ }
  val top=when{onDark->Color(0x0FFFFFFF);strong&&dark->Color(0xF5172A3B);strong->Color(0xF2FFFFFF);dark->Color(0x13FFFFFF);else->Color(0xD1FFFFFF)}
  val bottom=when{onDark->top;strong&&dark->Color(0xF00B1824);strong->Color(0xD1FFFFFF);dark->Color(0x09FFFFFF);else->Color(0xA3FFFFFF)}
  val line=when{onDark->Color(0x24FFFFFF);dark->Color(0x1FFFFFFF);strong->Color(0xE6FFFFFF);else->Color(0xBFFFFFFF)}
- val shape=RoundedCornerShape(if(strong)SiteDesign.SoftCardRadius else SiteDesign.CardRadius)
+ val shape=RoundedCornerShape(if(radiusDp!=24)radiusDp.dp else if(strong)SiteDesign.SoftCardRadius else SiteDesign.CardRadius)
  Surface(modifier=modifier.fillMaxWidth(),color=Color.Transparent,shape=shape,tonalElevation=0.dp,
   shadowElevation=if(dark)0.dp else 4.dp,border=BorderStroke(1.dp,line)) {
   Box(Modifier.background(Brush.verticalGradient(listOf(top,bottom)))) {content()}
@@ -111,7 +128,7 @@ object SiteDesign {
      }
     }
    }
-   Text(title,color=Color.White,style=if(wide)MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Black)
+   Text(title,color=Color.White,style=if(wide)MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Black,modifier=Modifier.semantics{heading()})
    Text(description,color=Palette.Slate300,style=MaterialTheme.typography.bodyMedium)
    if(footer!=null)footer()
   }
@@ -122,7 +139,8 @@ object SiteDesign {
 @Composable fun AuthShowcase() {
  Column(verticalArrangement=Arrangement.spacedBy(18.dp)) {
   Text("میز کار اختصاصی حقوقی شما،",color=Color.White,style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Black)
-  Text("همراه با بانک قوانین و آرای رسمی ایران",color=Palette.Brass300,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Black)
+  // سایت در AuthPage همین خط را با text-gold-shimmer می‌دهد.
+ GoldShimmerText("همراه با بانک قوانین و آرای رسمی ایران",MaterialTheme.typography.headlineSmall.copy(fontWeight=FontWeight.Black))
   listOf(NativeIcons.MenuBook to "مطالعه قوانین و استنادهای پاسخ",NativeIcons.Description to "تنظیم پیش‌نویس سند و دریافت Word").forEach { (icon,text)->
    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
     Surface(color=Palette.Brass400.copy(alpha=.14f),shape=SiteShape.Xl){Icon(icon,null,tint=Palette.Brass300,modifier=Modifier.padding(9.dp).size(20.dp))}
@@ -208,15 +226,42 @@ object SiteDesign {
 /**
  * تب‌های سایت: ظرف شیشه‌ای `bg-white/10` روی سربرگ تیره، گزینهٔ فعال Brass300 با متن navy-950.
  */
-@Composable fun SiteTabs(options:List<Pair<String,String>>,selected:String,onSelect:(String)->Unit) {
+/**
+ * چیپ سایت (`.hsai-glass-soft px-3 py-1.5 rounded-xl` — ۱۱px، وزن ۸۰۰).
+ * جای SuggestionChip پیش‌فرض M3 که نه رنگ شیشه‌ای سایت را دارد و نه شعاع ۱۲dp.
+ */
+@Composable fun SiteChip(label:String,modifier:Modifier=Modifier,enabled:Boolean=true,onClick:(()->Unit)?=null) {
+ val dark=LocalSiteDark.current
+ val tint=if(dark)Palette.Slate300 else Palette.Slate700
+ val body:@Composable ()->Unit={ Row(Modifier.heightIn(min=32.dp).padding(horizontal=12.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically) {
+  Text(label,style=MaterialTheme.typography.labelSmall,color=if(enabled)tint else tint.copy(alpha=.5f),maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+ } }
+ if(onClick!=null) SiteGlass(modifier,soft=true) { Surface(onClick=onClick,enabled=enabled,color=Color.Transparent,shape=RoundedCornerShape(12.dp)){body()} }
+ else SiteGlass(modifier,soft=true) { body() }
+}
+
+/**
+ * `.text-gold-shimmer` سایت — در AuthPage و LandingPage روی تیتر برنجی است.
+ * سایت روی موبایل و prefers-reduced-motion انیمیشن را خاموش می‌کند؛ اینجا هم
+ * گرادیان ثابت است (بدون انیمیشن) تا هم‌ظاهر بماند و باتری/کارایی خرج نکند.
+ */
+val GoldShimmerBrush=Brush.linearGradient(listOf(Palette.Brass300,Palette.Brass100,Palette.Brass400,Color(0xFFFFF4D6),Palette.Brass300))
+@Composable fun GoldShimmerText(text:String,style:androidx.compose.ui.text.TextStyle,modifier:Modifier=Modifier,textAlign:androidx.compose.ui.text.style.TextAlign?=null) {
+ Text(text,modifier,style=style.copy(brush=GoldShimmerBrush),textAlign=textAlign)
+}
+
+@Composable fun SiteTabs(options:List<Pair<String,String>>,selected:String,onSelect:(String)->Unit,icon:(String)->androidx.compose.ui.graphics.vector.ImageVector?={null}) {
  Surface(color=Color(0x1AFFFFFF),shape=SiteShape.Xxl,border=BorderStroke(1.dp,Color(0x26FFFFFF))) {
   FlowRow(Modifier.padding(5.dp),horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
    options.forEach { (key,label)->
     val on=selected==key
     Surface(onClick={onSelect(key)},shape=SiteShape.Xl,color=if(on)Palette.Brass300 else Color.Transparent,
      contentColor=if(on)Palette.Navy950 else Palette.Slate200) {
-     Text(label,Modifier.padding(horizontal=14.dp,vertical=8.dp),style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.ExtraBold,
-      color=if(on)Palette.Navy950 else Palette.Slate200)
+     val itemIcon=icon(key)
+     Row(Modifier.heightIn(min=44.dp).padding(horizontal=14.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+      if(itemIcon!=null)Icon(itemIcon,null,Modifier.size(16.dp),tint=if(on)Palette.Navy950 else Palette.Slate200)
+      Text(label,style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.ExtraBold,color=if(on)Palette.Navy950 else Palette.Slate200)
+     }
     }
    }
   }

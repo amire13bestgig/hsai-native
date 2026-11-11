@@ -4,12 +4,10 @@ package ir.hsai.mobile
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,18 +41,6 @@ object AnswerMode {
     )
 
     fun label(mode: String): String = labels[mode] ?: labels.getValue("rag")
-
-    /**
-     * همان منطق `hideModeBadge` وب: حالت‌های گفتگویی/پرسشی برچسب نمی‌گیرند و
-     * پاسخ «rag» بدون استناد و بدون برگه هم برچسب نمی‌گیرد.
-     */
-    fun hidden(v: JSONObject?, cited: Int, hasDocument: Boolean): Boolean {
-        if (v == null) return true
-        if (ApiContract.hideBadge(v)) return true
-        val mode = ApiContract.mode(v)
-        if (mode == "conversational" || mode == "quick_question") return true
-        return (mode.isBlank() || mode == "rag") && cited == 0 && !hasDocument
-    }
 }
 
 @Composable private fun ModePill(text: String, container: Color, content: Color) {
@@ -105,7 +91,7 @@ object AnswerMode {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(NativeIcons.Balance, null, Modifier.size(15.dp), tint = Palette.Brass300)
+                    Icon(NativeIcons.Scale, null, Modifier.size(15.dp), tint = Palette.Brass300)
                     Text(card.str("title", "محاسبهٔ قانونی"), style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Black, color = Palette.Brass300)
                 }
@@ -141,7 +127,8 @@ object AnswerMode {
         border = BorderStroke(2.dp, Palette.Ok.copy(alpha = .35f))) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(NativeIcons.Check, null, Modifier.size(16.dp), tint = if (LocalSiteDark.current) Palette.OkBright else Palette.Ok)
+                // سایت: <HeartHandshake className="w-4 h-4 text-emerald-700"/> در سرتیتر همین کارت
+                Icon(NativeIcons.HeartHandshake, null, Modifier.size(16.dp), tint = if (LocalSiteDark.current) Palette.OkBright else Palette.Ok)
                 Text("در یک نگاه ساده (بدون استرس بخوانید):", style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black, color = Soft.ink())
             }

@@ -20,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
-import org.json.JSONObject
 
 /** Authentication is an explicit route, shown after a protected action; guest chat stays separate. */
 @Composable fun LoginScreen(s:AppUiState,vm:AppViewModel) {
@@ -56,7 +55,7 @@ import org.json.JSONObject
        Text("خوش آمدید، ${s.user.str("full_name","دوست عزیز")}",fontWeight=FontWeight.Medium)
        Text("نشست امن شما روی این دستگاه فعال است.",style=MaterialTheme.typography.bodySmall)
        Button(onClick=vm::enterWorkspace,enabled=s.initialized&&!s.posting,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),shape=SiteShape.Xl){Text("ادامه به میز کار")}
-       SoftButton(onClick={vm.logout()},enabled=!s.posting,modifier=Modifier.fillMaxWidth()){Text("ورود با حساب دیگر")}
+       SoftButton(onClick={vm.openDialog("logout","خروج از حساب")},enabled=!s.posting,modifier=Modifier.fillMaxWidth()){Text("ورود با حساب دیگر")}
       } else {
        if(s.config.optBoolean("sms_otp_enabled")) {
         Surface(color=Soft.well(),shape=SiteShape.Xxl,border=BorderStroke(1.dp,Soft.border())) {
@@ -80,7 +79,7 @@ import org.json.JSONObject
         Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
          Text("رمز عبور",style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.Bold)
-         if(mode=="login")TextButton(onClick={vm.openDialog("forgot","بازیابی رمز عبور")},contentPadding=PaddingValues(0.dp)){Text("فراموشی رمز عبور؟",color=Copper,style=MaterialTheme.typography.labelMedium)}
+         if(mode=="login")TextButton(onClick={vm.openDialog("forgot","بازیابی رمز عبور")},modifier=Modifier.heightIn(min=44.dp),enabled=!s.posting,contentPadding=PaddingValues(horizontal=4.dp)){Text("فراموشی رمز عبور؟",color=Copper,style=MaterialTheme.typography.labelMedium)}
         }
         AuthField("رمز عبور",password,{password=it},password=true,latin=true,showLabel=false,enabled=!s.posting,onDone=submit,error=s.fieldErrors["password"],onEdited={vm.inputEdited("password")},firstError=s.firstField("password"),attempt=s.validationAttempt)
         }
@@ -96,9 +95,16 @@ import org.json.JSONObject
         * اکنون قرارداد بومی هست: nonce دستگاه + برگهٔ دست‌دهی کوتاه‌عمر
         * (POST /api/v1/auth/google/handoff). جریان در مرورگر امن انجام می‌شود.
         */
-       if(s.config.optBoolean("google_sign_in_enabled",false)) {
-        SoftButton(onClick={vm.startGoogleSignIn()},enabled=!s.posting,modifier=Modifier.fillMaxWidth()){Text("ورود با حساب گوگل")}
-        Text("ورود با گوگل در مرورگر امن گوشی انجام می‌شود و پس از تأیید، خودکار به اپ برمی‌گردید.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       if(ApiContract.googleAppSignInEnabled(s.config)) {
+        // سایت دکمهٔ گوگل را با نشان چهاررنگ رسمی می‌دهد (AuthPage.GoogleIcon)، نه دکمهٔ متنی خالی.
+        SoftButton(onClick={vm.startGoogleSignIn()},enabled=!s.posting,modifier=Modifier.fillMaxWidth()){Image(NativeIcons.GoogleMark,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp));Text("ورود با حساب گوگل",fontWeight=FontWeight.Bold)}
+        // کادر هشدار سایت: p-3 rounded-2xl bg-amber-50 border-amber-200 text-amber-900 + AlertCircle amber-700
+        Surface(color=Color(0xFFFFFBEB),shape=SiteShape.Xxl,border=BorderStroke(1.dp,Color(0xFFFDE68A))) {
+         Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+          Icon(NativeIcons.AlertCircle,null,Modifier.padding(top=2.dp).size(16.dp),tint=Color(0xFFB45309))
+          Text("ورود با گوگل در مرورگر امن گوشی انجام می‌شود و پس از تأیید، خودکار به اپ برمی‌گردید.",Modifier.weight(1f),style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold,color=Color(0xFF78350F),lineHeight=24.sp)
+         }
+        }
        }
        // فرم تماس عمومی سایت: برای کسی که هنوز حساب ندارد هم باز است.
        TextButton(onClick={vm.openDialog("contact","تماس با پشتیبانی")},enabled=!s.posting){Text("پیام به پشتیبانی (بدون حساب)",color=Copper,style=MaterialTheme.typography.labelMedium)}
@@ -141,7 +147,8 @@ import org.json.JSONObject
     keyboardActions=KeyboardActions(onDone={onDone?.invoke()},onNext={defaultKeyboardAction(ImeAction.Next)}),
     leadingIcon=if(password){{IconButton(onClick={visible=!visible}){Icon(if(visible)NativeIcons.VisibilityOff else NativeIcons.Visibility,if(visible)"پنهان کردن رمز"else "نمایش رمز")}}}else null,
     trailingIcon={Icon(if(password)NativeIcons.Lock else if(numeric)NativeIcons.Phone else NativeIcons.Mail,null,Modifier.size(20.dp))},
-    colors=OutlinedTextFieldDefaults.colors(unfocusedContainerColor=Soft.WellLight,focusedContainerColor=Soft.WellLight,unfocusedBorderColor=Color.Transparent,focusedBorderColor=Palette.Brass400,errorBorderColor=MaterialTheme.colorScheme.error,cursorColor=Palette.Brass500),textStyle=MaterialTheme.typography.bodyMedium)
+    // سایت: bg-white border-slate-300 + focus:ring-2 focus:ring-brass-400 (AuthPage ورودی‌ها)
+    colors=OutlinedTextFieldDefaults.colors(unfocusedContainerColor=Color.White,focusedContainerColor=Color.White,unfocusedBorderColor=Palette.Slate300,focusedBorderColor=Palette.Brass400,errorBorderColor=MaterialTheme.colorScheme.error,cursorColor=Palette.Brass500),textStyle=MaterialTheme.typography.bodyMedium.copy(fontWeight=FontWeight.Bold))
   }
  }
 }

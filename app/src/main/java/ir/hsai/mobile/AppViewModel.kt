@@ -11,7 +11,7 @@ import java.net.URLEncoder
 
 enum class Screen(val title:String) {
  CHAT("گفتگوی حقوقی"), HISTORY("گفتگوهای من"), DOCUMENTS("اوراق قضایی"), SCANNER("تحلیل مدارک"),
- LAWS("بانک قوانین"), CALCULATORS("محاسبه‌گرها"), DEADLINES("مهلت‌های قانونی"), PLANS("اشتراک و پرداخت‌ها"), TICKETS("پشتیبانی"), ACCOUNT("حساب کاربری")
+ LAWS("بانک قوانین"), CALCULATORS("محاسبه‌گرها"), DEADLINES("مهلت‌های قانونی"), PLANS("اشتراک و پرداخت‌ها"), TICKETS("پشتیبانی"), ACCOUNT("حساب کاربری"), SETTINGS("تنظیمات")
 }
 /** متن مرحلهٔ آغازین، واژه‌به‌واژه از ChatAgentPage.jsx (setStreamStage). */
 const val CHAT_STAGE_OPENING: String = "در حال اتصال به موتور حقوقی و تشخیص مرجع صالح..."
@@ -29,7 +29,10 @@ data class AppUiState(
  // FIX(chat-parity): وب‌سایت همیشه جریانی پاسخ می‌دهد و هیچ کلید کاربری برای این انتخاب ندارد.
  // این پرچم فقط برای آزمون/پشتیبان مانده و پیش‌فرضش روشن است (دیگر در UI نمایش داده نمی‌شود).
  val streaming:Boolean=true,val freeQuota:JSONObject=JSONObject(),
- val draftReady:Boolean=false,val pendingGuestMessage:Boolean=false,val chatStatus:ChatStatus=ChatStatus.IDLE,val retryReviewed:Boolean=false,
+ val draftReady:Boolean=false,val draftTruncated:Boolean=false,val pendingGuestMessage:Boolean=false,
+ // دور نهم: هشدار نشست، دادهٔ کش‌شده، نمای تقویم، تنظیمات خواندن/صدا
+ val sessionLeft:Long?=null,val stale:Boolean=false,val staleAge:String="",
+ val deadlineView:String="list",val calendarOffset:Int=0,val textScale:Float=1f,val ttsRate:Float=1f,val readMode:Boolean=false,val chatStatus:ChatStatus=ChatStatus.IDLE,val retryReviewed:Boolean=false,
  val conversationId:Long?=null,val failedChat:JSONObject?=null,val dialog:AppDialog?=null,
  val lawSlug:String="",val lawQuery:String="",val lawSource:String="all",val lawTab:String="search",val planCycle:String="monthly",val calculator:String="court_fee",val result:JSONObject?=null
 )
@@ -57,12 +60,29 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
  private var reminderDismissed=false
  private var otpSentAt=0L
  /**
-  * nonce جریان «ورود با گوگل». عمداً فقط در حافظهٔ همین فرایند است: اگر اپ
-  * kill شود، برگهٔ دست‌دهی بی‌مصرف می‌شود و کاربر پیام روشن می‌گیرد.
+  * nonce جریان «ورود با گوگل». نسخهٔ حافظه‌ای برای همین فرایند است و نسخهٔ پایدار
+  * (با TTL ۱۰ دقیقه) در مخزن دستگاه نگه داشته می‌شود؛ اگر اندروید اپ را در حین
+  * ورود در مرورگر بکشد، بازگشت همچنان کامل می‌شود (AppViewModel.completeGoogleSignIn).
   */
  private var googleNonce:String=""
  private fun change(block:(AppUiState)->AppUiState) { mutable.update(block) }
  fun notice(text:String) { events.tryEmit(AppEffect.Toast(text)) }
+ // تنظیمات ظاهری/صوتی و کش فهرست‌ها: SharedPreferences ساده، بدون وابستگی تازه.
+ private val uiPrefs by lazy { getApplication<Application>().getSharedPreferences("hsai_ui",android.content.Context.MODE_PRIVATE) }
+ private val cachePrefs by lazy { getApplication<Application>().getSharedPreferences("hsai_cache",android.content.Context.MODE_PRIVATE) }
+ private val cachedScreens = setOf("HISTORY","DOCUMENTS","SCANNER","DEADLINES","TICKETS","LAWS")
+ /** زمان باقی‌ماندهٔ توکن برای بنر «نشست در شرف پایان». */
+ fun updateSessionClock() {
+  val token=api.token
+  if(token.isBlank()){change{it.copy(sessionLeft=null)};return}
+  change{it.copy(sessionLeft=SessionClock.secondsLeft(token,System.currentTimeMillis()/1000))}
+ }
+ fun setTextScale(v:Float){val c=v.coerceIn(0.85f,1.5f);uiPrefs.edit().putFloat("text_scale",c).apply();change{it.copy(textScale=c)}}
+ fun setTtsRate(v:Float){val c=v.coerceIn(0.7f,1.6f);uiPrefs.edit().putFloat("tts_rate",c).apply();change{it.copy(ttsRate=c)}}
+ fun setReadMode(v:Boolean){change{it.copy(readMode=v)}}
+ fun toggleDeadlineView(){change{it.copy(deadlineView=if(it.deadlineView=="list")"calendar" else "list")}}
+ fun shiftCalendar(delta:Int){change{it.copy(calendarOffset=(it.calendarOffset+delta).coerceIn(-24,24))}}
+ fun clearLocalCache(){cachePrefs.edit().clear().apply();change{it.copy(stale=false,staleAge="")};notice("داده‌های ذخیره‌شده برای حالت بی‌اتصال پاک شد.")}
  init {
   viewModelScope.launch {
    val session=withContext(Dispatchers.IO) { vault.read() }
@@ -70,6 +90,7 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
    change { it.copy(initialized=true,screen=Screen.CHAT,entryComplete=true,authenticated=api.token.isNotBlank(),user=session?.optJSONObject("user")?:JSONObject(),dark=vault.dark) }
    launch { runCatching { request("/config",authenticated=false) }.onSuccess { cfg->change { it.copy(config=cfg) } } }
    checkConnection(false)
+   change{it.copy(textScale=uiPrefs.getFloat("text_scale",1f).coerceIn(0.85f,1.5f),ttsRate=uiPrefs.getFloat("tts_rate",1f).coerceIn(0.7f,1.6f),sessionLeft=SessionClock.secondsLeft(api.token,System.currentTimeMillis()/1000))}
    change{it.copy(reminderNotice=vault.reminderNotice)}
    if(!vault.reminderMigrationDone)launch { try { val pending=ReminderMigration.run(getApplication());if(reminderDismissed)withContext(Dispatchers.IO){vault.reminderNotice=false};change{it.copy(reminderNotice=pending&&!reminderDismissed)} }catch(c:CancellationException){throw c}catch(_:Exception){/* Retry migration on the next start; never mark failed work as migrated. */} }
    val initialToken=api.token;val initialEpoch=sessionEpoch
@@ -149,11 +170,17 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
  fun previewConversation(id:Long){if(state.value.posting)return;if(!state.value.authenticated){loginRequired(Screen.HISTORY);return};change{it.copy(pane=null)};val g=generation;post {
   val data=request("/consultations/$id");if(g==generation)change{it.copy(pane=AppDialog("historyPreview",data.optJSONObject("conversation")?.str("title","پیش‌نمایش گفتگو")?:"پیش‌نمایش گفتگو",data.put("id",id)))}
  }}
- fun setDraft(text:String) { val clean=text.take(12000);saved["draft"]=clean;change { it.copy(draft=clean,draftReady=it.draftReady&&clean.isNotBlank()) } }
+ fun setDraft(text:String) {
+  // FIX(bug): قبلاً متنِ بیش از سقف بی‌صدا بریده می‌شد؛ اکنون وضعیت «بریده‌شد» در state
+  // می‌رود و رابط کاربری همان را زیر ورودی نشان می‌دهد.
+  val clamped=UiPresentation.clampDraft(text)
+  saved["draft"]=clamped.value
+  change { it.copy(draft=clamped.value,draftReady=it.draftReady&&clamped.value.isNotBlank(),draftTruncated=clamped.truncated) }
+ }
  fun setImage(data:String?) { change { it.copy(image=data,result=if(it.screen==Screen.SCANNER)null else it.result,fieldErrors=it.fieldErrors-"text") } }
- fun setStream(v:Boolean) { change { it.copy(streaming=v) } }
- fun chooseTopic(text:String) { setDraft("$text؛ ") }
- fun newChat() { if(state.value.posting){notice("تا پایان درخواست صبر کنید.");return};setDraft("");change { it.copy(messages=emptyList(),conversationId=null,failedChat=null,image=null,draftReady=false,pendingGuestMessage=false,chatStatus=ChatStatus.IDLE) };navigate(Screen.CHAT) }
+ // FIX(bug): پیش‌نویس نیمه‌نوشتهٔ کاربر با کلیک روی کارت موضوع پاک نمی‌شود.
+ fun chooseTopic(text:String) { setDraft(UiPresentation.topicDraft(state.value.draft,text)) }
+ fun newChat() { if(state.value.posting){notice("تا پایان درخواست صبر کنید.");return};Speaker.stop();setDraft("");change { it.copy(messages=emptyList(),conversationId=null,failedChat=null,image=null,draftReady=false,pendingGuestMessage=false,chatStatus=ChatStatus.IDLE) };navigate(Screen.CHAT) }
  fun loginRequired(target:Screen=state.value.screen) {
   returnTo=target;generation++;loadJob?.cancel()
   change{it.copy(screen=Screen.ACCOUNT,entryComplete=false,pendingGuestMessage=target==Screen.CHAT&&(it.draft.isNotBlank()||it.image!=null),dialog=null,pane=null,fieldErrors=emptyMap(),error="",items=emptyList(),data=JSONObject(),result=null,loading=false,page=1,hasNext=false)}
@@ -200,6 +227,7 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   require(d.str("token").isNotBlank()){ "توکن در پاسخ سرویس موجود نیست." }
   nextSession();api.token=d.str("token");val u=d.optJSONObject("user")?:JSONObject();persist(u)
   change { it.copy(authenticated=true,entryComplete=true,draftReady=it.pendingGuestMessage&&(it.draft.isNotBlank()||it.image!=null),pendingGuestMessage=false,user=u,subscription=d.optJSONObject("subscription")?:JSONObject(),dialog=null,error="") }
+  updateSessionClock()
   notice("به حق‌سنج خوش آمدید.");val target=returnTo;returnTo=Screen.CHAT;back.clear();navigate(target,false);loadSidebar()
  }
  fun enterWorkspace() {
@@ -226,7 +254,7 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   val d=try { request("/auth/otp/verify","POST",JSONObject().put("phone",phone).put("code",c),false) } catch(e:ApiException){throw ApiException(e.message.orEmpty(),e.status,"AUTH_FORM")}
   acceptAuth(d)
  } }
- fun logout() { if(state.value.posting)return;viewModelScope.launch { if(!expire())return@launch;setDraft("");change { it.copy(image=null,failedChat=null) };back.clear();returnTo=Screen.CHAT;browseAsGuest();notice("از حساب خارج شدید.") } }
+ fun logout() {Speaker.stop(); if(state.value.posting)return;viewModelScope.launch { if(!expire())return@launch;setDraft("");change { it.copy(image=null,failedChat=null) };back.clear();returnTo=Screen.CHAT;browseAsGuest();notice("از حساب خارج شدید.") } }
  fun sendChat(retry:Boolean=false) {
   val s=state.value
   if(!retry&&s.draft.isBlank()&&s.image==null)return
@@ -314,13 +342,22 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   }
   val g=++generation;val epoch=sessionEpoch;loadJob?.cancel();change { it.copy(loading=true,error="",page=page) }
   loadJob=viewModelScope.launch {
+   val cacheKey=ListCache.key(s.screen.name,page,if(s.screen==Screen.LAWS)s.lawQuery+"|"+s.lawSource+"|"+s.lawSlug else "")
    try {
     val d=request(endpoint,authenticated=s.screen !in listOf(Screen.LAWS,Screen.PLANS));if(g!=generation||epoch!=sessionEpoch)return@launch
     val paged=ApiContract.page(d,page,if(s.screen==Screen.LAWS)15 else if(s.screen in listOf(Screen.HISTORY,Screen.DOCUMENTS))30 else 20,s.lawTab)
-    change { it.copy(loading=false,data=d,items=paged.items,hasNext=paged.hasNext) }
+    if(paged.items.isNotEmpty()&&s.screen.name in cachedScreens)cachePrefs.edit().putString(cacheKey,ListCache.encode(paged.items)).putLong("$cacheKey:at",System.currentTimeMillis()).apply()
+    change { it.copy(loading=false,data=d,items=paged.items,hasNext=paged.hasNext,stale=false,staleAge="") }
     if(s.screen==Screen.HISTORY&&page==1)change{it.copy(sidebarHistory=paged.items)}
     if(s.screen==Screen.ACCOUNT){val u=d.optJSONObject("user")?:d;change { it.copy(user=u,subscription=d.optJSONObject("subscription")?:JSONObject()) };persist(u)}
-   } catch(c:CancellationException){throw c} catch(e:Exception){if(g==generation&&epoch==sessionEpoch){if(e is ApiException&&e.status==401){if(expire(epoch))notice("نشست پایان یافته؛ دوباره وارد شوید.")}else change { it.copy(loading=false,error=e.message.orEmpty()) }}}
+   } catch(c:CancellationException){throw c} catch(e:Exception){if(g==generation&&epoch==sessionEpoch){if(e is ApiException&&e.status==401){if(expire(epoch))notice("نشست پایان یافته؛ دوباره وارد شوید.")}else {
+      // دور نهم: اگر همین فهرست کش شده باشد، به‌جای صفحهٔ خطا همان داده با برچسب «ذخیره‌شده» نشان داده می‌شود.
+      val cached=if(s.screen.name in cachedScreens)ListCache.decode(cachePrefs.getString(cacheKey,""))else emptyList()
+      if(cached.isNotEmpty()) {
+       val at=cachePrefs.getLong("$cacheKey:at",0L)
+       change { it.copy(loading=false,error="",items=cached,stale=true,staleAge=ListCache.ageLabel(((System.currentTimeMillis()-at)/60000).coerceAtLeast(0))) }
+      } else change { it.copy(loading=false,error=e.message.orEmpty()) }
+     }}}
   }
  }
  fun searchLaws(query:String) { change { it.copy(lawQuery=query.trim(),pane=null) };refresh() }
@@ -340,7 +377,12 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
  fun stopChat() { if(state.value.posting&&state.value.chatStatus in setOf(ChatStatus.SENDING,ChatStatus.RECEIVING)){postJob?.cancel();change{it.copy(chatStatus=ChatStatus.STOPPED,failedChat=null)}} }
  fun cycle(cycle:String) { change { it.copy(planCycle=cycle) } }
  fun calculator(id:String) { generation++;change { it.copy(calculator=id,result=null,error="") } }
- fun compute(values:Map<String,String>) { val g=generation;val calculator=Domain.calculators.first { it.id==state.value.calculator };post {
+ fun compute(values:Map<String,String>) {
+  // FIX(crash): شناسهٔ ناشناخته (مثلاً پس از به‌روزرسانی اپ) باعث NoSuchElementException می‌شد.
+  val calculator=Domain.calculatorOrNull(state.value.calculator)
+  if(calculator==null){val fixed=Domain.calculators.first();change{it.copy(calculator=fixed.id,result=null)};notice("ماشین‌حساب انتخاب‌شده دیگر موجود نیست؛ «${fixed.title}» باز شد.");return}
+  val g=generation
+  post {
   change{it.copy(result=null)}
   val body=CalculatorContract.body(calculator,values)
   val result=request("/calculators/compute","POST",body,false);if(g==generation&&state.value.screen==Screen.CALCULATORS&&state.value.calculator==calculator.id)change { it.copy(result=result) }
@@ -392,7 +434,17 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   val url=d.str("gateway_url");val parsed=java.net.URI(url);require(parsed.scheme=="https"&&parsed.host!=null){"نشانی درگاه امن نیست."}
   require(d.str("authority").isNotBlank()){ "شناسه پرداخت دریافت نشد." };vault.authority=d.str("authority");change { it.copy(dialog=null) };events.emit(AppEffect.OpenUrl(url))
  } }
- fun verifyPayment(authority:String=vault.authority) { if(authority.isBlank())return;if(!state.value.authenticated){loginRequired(Screen.PLANS);return};post { val d=request("/billing/payments/${encode(authority)}");openDialog("result","وضعیت پرداخت از سرور",d) } }
+ fun verifyPayment(authority:String=vault.authority) {
+  if(authority.isBlank())return
+  if(!state.value.authenticated){loginRequired(Screen.PLANS);return}
+  post {
+   val d=request("/billing/payments/${encode(authority)}")
+   // FIX(bug): «شناسهٔ پرداخت معلق» پس از تسویه پاک می‌شد نمی‌شد و هر لینک خارجی بعدی
+   // می‌توانست استعلام پرداخت را دوباره راه بیندازد.
+   if(ApiContract.paymentSettled(d))vault.authority=""
+   openDialog("result","وضعیت پرداخت از سرور",d)
+  }
+ }
  fun paymentHistory() { post { val d=request("/billing/payments");openDialog("payments","تاریخچه پرداخت‌ها",d) } }
  val pendingPayment:Boolean get()=vault.authority.isNotBlank()
  private fun encode(s:String)=URLEncoder.encode(s,"UTF-8").replace("+","%20")
@@ -541,11 +593,14 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   */
  fun startGoogleSignIn() {
   if(state.value.posting)return
-  if(!state.value.config.optBoolean("google_sign_in_enabled",false)){notice("ورود با گوگل روی سرور فعال نیست.");return}
+  val cfg=state.value.config
+  if(!ApiContract.googleAppSignInEnabled(cfg)){notice("ورود با گوگل روی سرور فعال نیست.");return}
   if(state.value.authenticated){notice("برای ورود با حساب دیگر، اول از حساب فعلی خارج شوید.");return}
   val nonce=ApiContract.newHandoffNonce()
   googleNonce=nonce
-  events.tryEmit(AppEffect.OpenUrl(ApiContract.googleStartUrl(nonce)))
+  vault.oauthNonce=ApiContract.encodeOauthNonce(nonce,System.currentTimeMillis())
+  // مرورگر دستگاه باز می‌شود؛ سرور در پایان به hsai://auth/google برمی‌گردد و اپ خودکار باز می‌شود.
+  events.tryEmit(AppEffect.OpenUrl(ApiContract.googleStartUrl(API_ORIGIN,nonce,ApiContract.googleAppSignInPath(cfg))))
   notice("در مرورگر با حساب گوگل وارد شوید؛ پس از تأیید، خودکار به اپ برمی‌گردید.")
  }
 
@@ -559,7 +614,8 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
    return
   }
   if(link.error.isNotBlank()){notice(link.error);return}
-  val expected=googleNonce
+  // اگر اندروید فرایند را در حین ورود در مرورگر کشته باشد، nonce از مخزن خوانده می‌شود.
+  val expected=googleNonce.ifBlank{ApiContract.decodeOauthNonce(vault.oauthNonce,System.currentTimeMillis())}
   if(expected.isBlank()||link.nonce!=expected) {
    notice("این پاسخ ورود برای این دستگاه صادر نشده یا منقضی شده است؛ دوباره تلاش کنید.");return
   }
@@ -567,7 +623,7 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   val nonce=expected
   post {
    val d=request("/auth/google/handoff","POST",JSONObject().put("handoff",link.handoff).put("nonce",nonce),false)
-   googleNonce="";acceptAuth(d)
+   googleNonce="";vault.oauthNonce="";acceptAuth(d)
   }
  }
 
@@ -576,7 +632,7 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   post {
    validateFields("google_password" to {require(password.isNotBlank()){"رمز حساب حق‌سنج را وارد کنید."}})
    val d=request("/auth/google/link","POST",JSONObject().put("link_token",linkToken).put("password",password),false)
-   googleNonce="";acceptAuth(d)
+   googleNonce="";vault.oauthNonce="";acceptAuth(d)
   }
  }
 
@@ -593,7 +649,7 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
   post {
    validateFields("google_otp" to {require(Regex("[0-9]{4,8}").matches(Validation.digits(code))){"کد تأیید را وارد کنید."}})
    val d=request("/auth/google/link","POST",JSONObject().put("link_token",linkToken).put("otp_code",Validation.digits(code)),false)
-   googleNonce="";acceptAuth(d)
+   googleNonce="";vault.oauthNonce="";acceptAuth(d)
   }
  }
 

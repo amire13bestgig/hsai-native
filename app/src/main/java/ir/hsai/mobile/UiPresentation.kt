@@ -4,7 +4,29 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Presentation only. Never mutates API data or removes zero/false financial values. */
+/** نتیجهٔ اعمال سقف پیش‌نویس: متن پذیرفته‌شده + این‌که چیزی قطع شد یا نه. */
+data class DraftText(val value:String,val truncated:Boolean)
+
 object UiPresentation {
+ /** سقف نویسهٔ پیش‌نویس چت (همان سقف قبلی، اما این‌بار با بازخورد به کاربر). */
+ const val DRAFT_LIMIT:Int = 12000
+
+ /** سقف را اعمال می‌کند و می‌گوید آیا بخشی از متن رد شد. */
+ fun clampDraft(text:String,limit:Int=DRAFT_LIMIT):DraftText {
+  val value=if(text.length<=limit)text else text.substring(0,limit)
+  return DraftText(value,text.length>limit)
+ }
+
+ /**
+  * کلیک روی کارت موضوع: پیش‌نویس کاربر هرگز دور ریخته نمی‌شود.
+  * (قبلاً نوشتهٔ کاربر با متن موضوع جایگزین می‌شد و از دست می‌رفت.)
+  */
+ fun topicDraft(current:String,topic:String):String {
+  val base=current.trimEnd()
+  val add=topic.trim().trimEnd('؛')
+  return if(base.isBlank())"$add؛ " else "$base $add؛ "
+ }
+
  private val internal = setOf("id", "user_id", "conversation_id", "subscription_id", "type", "slug",
   "access_token", "session_token", "client_secret", "secret_key", "authorization", "credentials", "password_hash", "system_prompt", "internal_reasoning", "chain_of_thought", "debug", "internal",
   "analysis_json", "features_json", "messages_json", "verification_json", "token", "refresh_token", "password", "api_key", "image_base64", "image_data_url")
