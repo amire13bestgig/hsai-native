@@ -189,7 +189,7 @@ event: done
 data: {"answer":"متن پاسخ","conversation_id":42,"message_id":77,"subscription":{"days_remaining":7}}
 
 """,true)
-  compose.runOnIdle{vm.setStream(true);vm.setDraft("پرسش آزمایشی");vm.sendChat()}
+  compose.runOnIdle{vm.setDraft("پرسش آزمایشی");vm.sendChat()}
   compose.waitUntil(10000){vm.state.value.messages.lastOrNull()?.id==77L}
   assertEquals(1,vm.state.value.messages.last().citations.size)
   assertEquals("متن پاسخ",vm.state.value.messages.last().text)
@@ -529,7 +529,7 @@ data: {"answer":"متن پاسخ","conversation_id":42,"message_id":77,"subscrip
    override fun read()=value
    override fun save(value:JSONObject){this.value=value}
    override fun clear(){value=JSONObject();authority=""}
-   override var authority="";override var dark=false;override var reminderMigrationDone=true;override var reminderNotice=false
+   override var authority="";override var dark=false;override var reminderMigrationDone=true;override var reminderNotice=false;override var oauthNonce=""
   }
   val http=okhttp3.OkHttpClient.Builder().addInterceptor{chain->
    val data=if(chain.request().url.encodedPath.endsWith("/auth/refresh"))JSONObject().put("token","mock-refreshed").put("user",user)else JSONObject().put("items",org.json.JSONArray())
