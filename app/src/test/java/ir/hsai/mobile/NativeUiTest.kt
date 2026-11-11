@@ -428,7 +428,7 @@ data: {"answer":"متن پاسخ","conversation_id":42,"message_id":77,"subscrip
   compose.onNodeWithText("ویرایش",substring=false).assertDoesNotExist()
   compose.onNodeWithContentDescription("گزینه‌های سند سند آزمایشی منو").performScrollTo().performClick()
   compose.onNodeWithText("ویرایش",substring=false).assertExists();compose.onNodeWithText("دریافت Word").assertExists()
-  compose.onNodeWithText("حذف سند",substring=false).performClick()
+  compose.onAllNodesWithText("حذف سند",substring=false).onLast().performClick()
   assertEquals("delete",vm.state.value.dialog!!.kind);assertEquals(42L,vm.state.value.dialog!!.data.optLong("id"))
  }
  @Test fun cleanupUnknownResultFieldsAreOptionalButValuesRemainAccessible() {
