@@ -33,6 +33,8 @@ val AutoAwesome=icon("AutoAwesome","M12 3l2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L
 val NorthWest=icon("NorthWest","M19 5 5 19M5 5h14v14")
 val ContentCopy=icon("ContentCopy","M9 9h12v12H9V9zM5 15H3V3h12v2")
 val Check=icon("Check","m5 12 4 4L19 6")
+// دور ۱۴: آیکون «بازتولید» — هم‌سبک با آیکون‌های خطی موجود
+val Refresh=icon("Refresh","M21 12a9 9 0 1 1-2.6-6.4M21 4v6h-6")
 val ThumbUp=icon("ThumbUp","M7 10H3v11h4V10zm0 0 5-7h2v7h7l-2 11H7V10z")
 val ThumbDown=icon("ThumbDown","M7 14H3V3h4v11zm0 0 5 7h2v-7h7L19 3H7v11z")
 val Mic=icon("Mic","M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3M9 21h6")

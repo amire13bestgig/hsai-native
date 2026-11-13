@@ -66,6 +66,14 @@ class ApiClient(
             envelope.optJSONObject("data")?:JSONObject().put("value",envelope.opt("data"))
         }
     }
+    /**
+     * بازتولید پاسخ (دور ۱۴/۱۵) — از دور ۱۵ روی API رسمی v1
+     * (`POST /api/v1/messages/:id/regenerate`) انجام می‌شود؛ همان منطق مشترک وب.
+     */
+    suspend fun regenerate(messageId:Long):JSONObject {
+        val d=request("/messages/$messageId/regenerate","POST",JSONObject())
+        return d.optJSONObject("message")?:throw ApiException("پاسخ تازه‌ای دریافت نشد.",0,"INVALID_RESPONSE")
+    }
     suspend fun documentBytes(id:Long,maxBytes:Int=20*1024*1024):ByteArray {
         require(id>0&&maxBytes in 4..20*1024*1024)
         val call=http.newCall(build("/documents/$id/docx","GET",null,true).newBuilder().header("Accept","application/vnd.openxmlformats-officedocument.wordprocessingml.document").build())

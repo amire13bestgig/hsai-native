@@ -21,6 +21,8 @@ object ApiRoutes {
  Regex("/consultations/[0-9]+/messages").matches(p) -> method in setOf("POST")
  Regex("/messages/[0-9]+/feedback").matches(p) -> method in setOf("POST")
  Regex("/messages/[0-9]+/simplify").matches(p) -> method in setOf("POST")
+ // دور ۱۴/۱۵: بازتولید پاسخ — اکنون در API v1 هم وجود دارد
+ Regex("/messages/[0-9]+/regenerate").matches(p) -> method in setOf("POST")
  Regex("/documents").matches(p) -> method in setOf("GET", "POST")
  Regex("/documents/[0-9]+").matches(p) -> method in setOf("GET", "PUT", "DELETE")
  Regex("/documents/[0-9]+/docx").matches(p) -> method in setOf("GET")

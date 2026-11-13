@@ -319,6 +319,8 @@ class AppViewModel @JvmOverloads constructor(app:Application,private val saved:S
    throw e
   }
  }
+ /** بازتولید پاسخ (دور ۱۴): همان پیام دستیار با پرسش قبلی دوباره ساخته می‌شود. */
+ fun regenerate(id:Long) { if(state.value.posting)return;post { val d=api.regenerate(id);val fresh=ApiContract.chatMessage(d);change { it.copy(messages=it.messages.map { m->if(m.id==id)fresh else m }) };notice("پاسخ بازتولید شد.") } }
  fun feedback(id:Long,value:String) { post { request("/messages/$id/feedback","POST",JSONObject().put("feedback",value));change { it.copy(messages=it.messages.map { m->if(m.id==id)m.copy(feedback=value)else m }) };notice("بازخورد ثبت شد.") } }
  /**
   * «ساده‌تر بگو» — وب‌سایت نتیجه را در همان پیام و در جعبهٔ سبز `simplified_content` نشان می‌دهد،

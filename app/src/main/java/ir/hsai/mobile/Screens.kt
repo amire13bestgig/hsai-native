@@ -327,21 +327,30 @@ enum class SkeletonKind { LIST, CHAT, CARDS }
   BoxWithConstraints(Modifier.fillMaxWidth()) {
    val scale=androidx.compose.ui.platform.LocalDensity.current.fontScale
    val columns=if(maxWidth>=900.dp&&scale<1.3f)3 else if(maxWidth>=600.dp&&scale<1.4f)2 else 1
-   Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-    (if(moreTopics)topics else topics.take(3)).chunked(columns).forEach { row->Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-     row.forEach { (badge,title,topicIcon)->
-      // سایت: <button class="hsai-glass p-3.5 rounded-2xl …"> با آیکون ۱۴dp + برچسب برنجی ۱۱px
-      // و متن اصلی font-black navy-950 / slate-50. پس کارت اینجا hsai-glass است، نه soft-card.
-      GlassCard(modifier=Modifier.weight(1f).fillMaxHeight().clickable(onClickLabel=title){vm.chooseTopic(title)},glass=true,pad=14,radiusDp=16,spacing=6) {
-       Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-        Icon(topicIcon,null,Modifier.size(14.dp),tint=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700)
-        Text(badge,style=MaterialTheme.typography.labelSmall,color=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700,fontWeight=FontWeight.ExtraBold)
-       }
-       Text(title,style=MaterialTheme.typography.bodyMedium,color=if(LocalSiteDark.current)Palette.Slate50 else Palette.Navy950,fontWeight=FontWeight.Black)
-      }
+   // FIX(ui): با ۳ کارت در چیدمان دوستونی، ردیف دوم تک‌کارت و نیم‌خالی می‌ماند.
+   // تعداد نمایش‌داده‌شده به مضرب ستون‌ها گرد می‌شود تا ردیف ناقص نداشته باشیم.
+   val shownCount=if(moreTopics)topics.size else when(columns){1->3;2->4;else->3}
+   val visible=topics.take(shownCount)
+   // FIX(ui): height(IntrinsicSize.Min)+fillMaxHeight در فهرست اسکرولی، اندازه‌گیری دوگانه می‌داد و
+   // کارت‌ها گاهی نیمه/جابه‌جا رندر می‌شدند. کارت‌ها حالا با heightIn(min=88dp) هم‌قد و پایدارند.
+   val topicCard:@Composable (Triple<String,String,androidx.compose.ui.graphics.vector.ImageVector>, Modifier)->Unit = { topic, modifier ->
+    val (badge,title,topicIcon)=topic
+    // سایت: <button class="hsai-glass p-3.5 rounded-2xl …"> با آیکون ۱۴dp + برچسب برنجی ۱۱px
+    // و متن اصلی font-black navy-950 / slate-50. پس کارت اینجا hsai-glass است، نه soft-card.
+    GlassCard(modifier=modifier.heightIn(min=88.dp).clickable(onClickLabel=title){vm.chooseTopic(title)},glass=true,pad=14,radiusDp=16,spacing=6) {
+     // FIX(ui): عرض ردیف محدود نبود و برچسب بلند از لبهٔ کارت بیرون می‌زد/بریده می‌شد.
+     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+      Icon(topicIcon,null,Modifier.size(14.dp),tint=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700)
+      Text(badge,Modifier.weight(1f),style=MaterialTheme.typography.labelSmall,color=if(LocalSiteDark.current)Palette.Brass300 else Palette.Brass700,fontWeight=FontWeight.ExtraBold)
      }
-     repeat(columns-row.size){Spacer(Modifier.weight(1f))}
-    }}
+     Text(title,Modifier.fillMaxWidth(),style=MaterialTheme.typography.bodyMedium,color=if(LocalSiteDark.current)Palette.Slate50 else Palette.Navy950,fontWeight=FontWeight.Black)
+    }
+   }
+   Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    visible.chunked(columns).forEach { row->
+     if(row.size==1) topicCard(row[0],Modifier.fillMaxWidth())
+     else Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) { row.forEach { topicCard(it,Modifier.weight(1f)) } }
+    }
    }
   }
   TextButton(onClick={moreTopics=!moreTopics}){Text(if(moreTopics)"موضوع‌های کمتر"else "موضوع‌های بیشتر")}
@@ -397,6 +406,8 @@ enum class SkeletonKind { LIST, CHAT, CARDS }
      GhostAction("مفید بود",if(m.feedback=="like")NativeIcons.Check else NativeIcons.ThumbUp,{vm.feedback(m.id,"like")},enabled=!busy,selected=m.feedback=="like")
      GhostAction("مفید نبود",NativeIcons.ThumbDown,{vm.feedback(m.id,"dislike")},enabled=!busy,selected=m.feedback=="dislike")
      GhostAction("ساده‌تر بگو",NativeIcons.AutoAwesome,{vm.simplify(m.id)},enabled=!busy)
+     // دور ۱۴: بازتولید پاسخ — فقط روی آخرین پاسخ دستیار (مثل وب)
+     if(isLatest)GhostAction("بازتولید",NativeIcons.Refresh,{vm.regenerate(m.id)},enabled=!busy)
     }
     // معادل دکمهٔ «خواندن» سایت (speechSynthesis)؛ اگر موتور گفتار فارسی نباشد، پیام روشن می‌دهد.
     val speech=LocalContext.current
@@ -433,8 +444,17 @@ enum class SkeletonKind { LIST, CHAT, CARDS }
   Text(s.user.str("full_name","حساب کاربری"),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
   Text(s.subscription.str("plan_name","حساب حق‌سنج"),color=MaterialTheme.colorScheme.secondary)
   // سایت این دو را با dir="ltr" و font-mono نشان می‌دهد تا ایمیل/شماره به‌هم نریزد.
-  if(s.user.str("email").isNotBlank())Text(s.user.str("email"),modifier=Modifier.semantics{contentDescription="ایمیل"},style=MaterialTheme.typography.bodySmall.merge(TextStyle(textDirection=TextDirection.Ltr,fontFamily=FontFamily.Monospace)))
-  if(s.user.str("phone").isNotBlank())Text(s.user.str("phone"),modifier=Modifier.semantics{contentDescription="شماره تلفن"},style=MaterialTheme.typography.bodySmall.merge(TextStyle(textDirection=TextDirection.Ltr,fontFamily=FontFamily.Monospace)))
+  // FIX(ui): ایمیل و شماره بدون برچسب، دو خط متنی شبیه هم بودند و از هم تشخیص داده نمی‌شدند.
+  val contactValue=MaterialTheme.typography.bodySmall.merge(TextStyle(textDirection=TextDirection.Ltr,fontFamily=FontFamily.Monospace))
+  val contactLabel=MaterialTheme.typography.labelSmall
+  if(s.user.str("email").isNotBlank())Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+   Text("ایمیل",style=contactLabel,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   Text(s.user.str("email"),modifier=Modifier.semantics{contentDescription="ایمیل"},style=contactValue)
+  }
+  if(s.user.str("phone").isNotBlank())Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+   Text("موبایل",style=contactLabel,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   Text(s.user.str("phone"),modifier=Modifier.semantics{contentDescription="شماره تلفن"},style=contactValue)
+  }
   FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
    // سایت (AccountSettingsPage): ارتقا = bg-navy-950 text-brass-300 + آیکون Crown ۱۶dp؛
    // خروج = bg-rose-50 border-rose-200 text-rose-700.
@@ -616,14 +636,24 @@ enum class SkeletonKind { LIST, CHAT, CARDS }
  };Pager(s,vm)
 } }
 @Composable fun PlansScreen(s:AppUiState,vm:AppViewModel) {Page(onRefresh={vm.refresh()},refreshing=s.loading,hero={SiteHero("طرح مناسب خود را انتخاب کنید","ماهانه یا سالانه؛ مبلغ نهایی را پیش از پرداخت بررسی کنید.","طرح‌های ماهانه و سالانه • قیمت مستقیم از سرور",NativeIcons.Crown,footer={SiteTabs(listOf("monthly" to "طرح‌های ماهانه","yearly" to "طرح‌های سالانه"),s.planCycle,vm::cycle)})}) {
- FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){if(s.authenticated)TextButton(onClick=vm::paymentHistory){Text("تاریخچه پرداخت")}}
- if(vm.pendingPayment)SoftButton(onClick={vm.verifyPayment()},enabled=!s.posting){Text("استعلام آخرین پرداخت")}
- val plans=s.items.filter{it.str("billing_cycle")==s.planCycle};Loading(s,SkeletonKind.CARDS);ErrorNotice(s,{vm.refresh()});if(!s.loading&&s.error.isBlank()&&plans.isEmpty())EmptyState("طرحی در این دوره موجود نیست","دوره دیگری را انتخاب کنید یا بعداً دوباره بررسی کنید.",NativeIcons.Crown);AdaptiveCards(plans,featured={it.optBoolean("is_popular")||it.optInt("is_popular")==1}) { p->if(p.str("badge_text").isNotBlank())Text(p.str("badge_text"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary);Text(p.str("name"),style=MaterialTheme.typography.titleMedium);Text(p.str("description"),style=MaterialTheme.typography.bodySmall);Text("${fa(p.optLong("price_toman"))} تومان",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("${fa(p.optInt("duration_days"))} روز اعتبار",style=MaterialTheme.typography.bodySmall);val features=p.optJSONArray("features")?:runCatching{JSONArray(p.str("features_json","[]"))}.getOrDefault(JSONArray());(0 until features.length()).forEach { i->Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Icon(NativeIcons.Check,null,Modifier.size(18.dp),tint=MaterialTheme.colorScheme.primary);Text(features.optString(i),Modifier.weight(1f))}};Action("انتخاب این اشتراک",s.posting){vm.selectPlan(p)}}
+ // FIX(ui): «تاریخچه پرداخت» یک TextButton لخت بالای کارت‌ها بود و مثل سرتیتر بخش دیده می‌شد.
+ // حالا یک سرتیتر واقعی داریم و اقدام‌های پرداخت به‌شکل دو دکمهٔ مشخص زیر آن می‌آیند.
+ Text(if(s.planCycle=="yearly")"طرح‌های سالانه"else "طرح‌های ماهانه",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,modifier=Modifier.semantics{heading()})
+ FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+  if(s.authenticated)SoftButton(onClick=vm::paymentHistory,onCard=true){Icon(NativeIcons.History,null,Modifier.size(16.dp));Text("تاریخچهٔ پرداخت‌های من")}
+  if(vm.pendingPayment)SoftButton(onClick={vm.verifyPayment()},enabled=!s.posting,onCard=true){Icon(NativeIcons.CheckCircle,null,Modifier.size(16.dp));Text("استعلام آخرین پرداخت")}
+ }
+ // در چیدمان راست‌به‌چپ، اولین کارت سمت راست دیده می‌شود؛ پس طرح «پیشنهاد ویژه» اول می‌آید.
+ val featuredPlan:(JSONObject)->Boolean={ it.optBoolean("is_popular")||it.optInt("is_popular")==1 }
+ val plans=s.items.filter{it.str("billing_cycle")==s.planCycle}.sortedByDescending(featuredPlan);Loading(s,SkeletonKind.CARDS);ErrorNotice(s,{vm.refresh()});if(!s.loading&&s.error.isBlank()&&plans.isEmpty())EmptyState("طرحی در این دوره موجود نیست","دوره دیگری را انتخاب کنید یا بعداً دوباره بررسی کنید.",NativeIcons.Crown);AdaptiveCards(plans,featured=featuredPlan) { p->if(p.str("badge_text").isNotBlank())Text(p.str("badge_text"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary);Text(p.str("name"),style=MaterialTheme.typography.titleMedium);Text(p.str("description"),style=MaterialTheme.typography.bodySmall);Text("${fa(p.optLong("price_toman"))} تومان",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("${fa(p.optInt("duration_days"))} روز اعتبار",style=MaterialTheme.typography.bodySmall);val features=p.optJSONArray("features")?:runCatching{JSONArray(p.str("features_json","[]"))}.getOrDefault(JSONArray());(0 until features.length()).forEach { i->Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Icon(NativeIcons.Check,null,Modifier.size(18.dp),tint=MaterialTheme.colorScheme.primary);Text(features.optString(i),Modifier.weight(1f))}};Action("انتخاب این اشتراک",s.posting){vm.selectPlan(p)}}
 } }
 @Composable fun TicketsScreen(s:AppUiState,vm:AppViewModel) {Page{
  PageHeader("کنارتان هستیم","مشکلات حساب یا خدمات را برای تیم پشتیبانی بفرستید.")
- Button(onClick={vm.openDialog("ticket","درخواست پشتیبانی جدید")},enabled=!s.posting,shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=if(LocalSiteDark.current)Palette.Brass400 else Palette.Navy950,contentColor=if(LocalSiteDark.current)Palette.Navy950 else Palette.Brass300)){Icon(NativeIcons.Add,null);Text("درخواست جدید")};Loading(s);ErrorNotice(s,{vm.refresh()});if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("درخواست پشتیبانی ندارید","رمز عبور و اطلاعات بانکی را در تیکت ننویسید.",NativeIcons.LifeBuoy)
- if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("درخواستی ثبت نشده","اگر مشکلی در حساب یا خدمات دارید، همین‌جا تیکت بزنید.",NativeIcons.LifeBuoy,actionLabel="درخواست پشتیبانی جدید",onAction={vm.openDialog("ticket","درخواست پشتیبانی جدید")})
+ Button(onClick={vm.openDialog("ticket","درخواست پشتیبانی جدید")},enabled=!s.posting,shape=SiteShape.Xl,colors=ButtonDefaults.buttonColors(containerColor=if(LocalSiteDark.current)Palette.Brass400 else Palette.Navy950,contentColor=if(LocalSiteDark.current)Palette.Navy950 else Palette.Brass300)){Icon(NativeIcons.Add,null);Text("درخواست جدید")};Loading(s);ErrorNotice(s,{vm.refresh()})
+ // FIX(ui): قبلاً دو حالت خالی («درخواست پشتیبانی ندارید» + «درخواستی ثبت نشده») و دو دکمهٔ
+ // «درخواست جدید/درخواست پشتیبانی جدید» روی هم می‌آمد؛ کاربر فکر می‌کرد دو بخش جدا دارد.
+ // اکنون یک پیام و همان یک دکمهٔ بالای صفحه مرجع است.
+ if(!s.loading&&s.error.isBlank()&&s.items.isEmpty())EmptyState("هنوز درخواستی ثبت نکرده‌اید","با دکمهٔ «درخواست جدید» در بالای همین صفحه تیکت بزنید؛ پاسخ تیم پشتیبانی همین‌جا نمایش داده می‌شود. رمز عبور و اطلاعات بانکی را در متن تیکت ننویسید.",NativeIcons.SupportAgent)
  AdaptiveCards(s.items) { t->
   Text(t.str("subject"),fontWeight=FontWeight.Medium)
   Text(mapOf("open" to "باز","answered" to "پاسخ داده‌شده","closed" to "بسته‌شده")[t.str("status")]?:t.str("status"),color=MaterialTheme.colorScheme.primary)

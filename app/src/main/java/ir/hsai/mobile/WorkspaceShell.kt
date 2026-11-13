@@ -204,17 +204,20 @@ fun workspaceLayout(widthDp:Float):WorkspaceLayout = when {
  val fontScale=androidx.compose.ui.platform.LocalDensity.current.fontScale
  BoxWithConstraints(Modifier.fillMaxWidth()) {
   val columns=(maxWidth.value/(minWidth.value*fontScale.coerceAtLeast(1f))).toInt().coerceIn(1,3)
+  // FIX(ui-دور۱۱): ردیف آخرِ ناقص، یک کارت + فضای خالی می‌ساخت و کارت «یتیم» تنها می‌ماند.
+  // حالا کارت تنها تمام‌عرض می‌شود و ارتفاع با IntrinsicSize.Min تثبیت می‌گردد.
   Column(verticalArrangement=Arrangement.spacedBy(14.dp)) {
    items.chunked(columns).forEach { row ->
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(14.dp)) {
-     row.forEach { item ->
-      // P2-1: اگر onDelete داده شود، هر کارت با کشیدن (به‌سمت پایان خط) درخواست حذف می‌دهد؛
-      // خودِ حذف فقط با دیالوگ تأیید انجام می‌شود.
-      val body:@Composable (Modifier)->Unit = { m->if(featured(item))FeaturedPlan(m.fillMaxHeight()){content(item)}else GlassCard(m.fillMaxHeight()){content(item)} }
-      if(onDelete==null)body(Modifier.weight(1f))
-      else SwipeToDelete(label=deleteLabel(item),enabled=true,onDelete={onDelete(item)},modifier=Modifier.weight(1f).fillMaxHeight()){body(Modifier.fillMaxSize())}
-     }
-     repeat(columns-row.size){Spacer(Modifier.weight(1f))}
+    val render:@Composable (T, Modifier)->Unit = { item, m ->
+     // P2-1: اگر onDelete داده شود، هر کارت با کشیدن (به‌سمت پایان خط) درخواست حذف می‌دهد؛
+     // خودِ حذف فقط با دیالوگ تأیید انجام می‌شود.
+     val body:@Composable (Modifier)->Unit = { mm->if(featured(item))FeaturedPlan(mm.fillMaxHeight()){content(item)}else GlassCard(mm.fillMaxHeight()){content(item)} }
+     if(onDelete==null)body(m)
+     else SwipeToDelete(label=deleteLabel(item),enabled=true,onDelete={onDelete(item)},modifier=m.fillMaxHeight()){body(Modifier.fillMaxSize())}
+    }
+    if(row.size==1&&columns>1) render(row[0],Modifier.fillMaxWidth())
+    else Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+     row.forEach { item -> render(item,Modifier.weight(1f)) }
     }
    }
   }

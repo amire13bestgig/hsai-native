@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
@@ -94,7 +95,10 @@ val SoftGlassLineDark=Color(0x1AFFFFFF)
  val shape=RoundedCornerShape(if(radiusDp!=24)radiusDp.dp else if(strong)SiteDesign.SoftCardRadius else SiteDesign.CardRadius)
  Surface(modifier=modifier.fillMaxWidth(),color=Color.Transparent,shape=shape,tonalElevation=0.dp,
   shadowElevation=if(dark)0.dp else 4.dp,border=BorderStroke(1.dp,line)) {
-  Box(Modifier.background(Brush.verticalGradient(listOf(top,bottom)))) {content()}
+  // FIX(ui-دور۱۱): پیش‌تر گرادیان شیشه بدون clip و بدون عرض ثابت رسم می‌شد؛ روی دستگاه،
+  // سطح سفید مربعی‌گوشه داخل کارت گرد دیده می‌شد و متن‌های بلند از لبهٔ کارت بیرون می‌زدند.
+  // fillMaxWidth + clip(shape) تضمین می‌کند گرادیان همیشه دقیقاً هم‌اندازه و هم‌شکل کارت باشد.
+  Box(Modifier.fillMaxWidth().clip(shape).background(Brush.verticalGradient(listOf(top,bottom)))) {content()}
  }
 }
 

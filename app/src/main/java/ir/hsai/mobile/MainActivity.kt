@@ -146,10 +146,35 @@ class MainActivity:ComponentActivity() {
    val orientation=runCatching{androidx.exifinterface.media.ExifInterface(java.io.ByteArrayInputStream(bytes)).getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,1)}.getOrDefault(1)
    val matrix=android.graphics.Matrix().apply{when(orientation){2->setScale(-1f,1f);3->setRotate(180f);4->setScale(1f,-1f);5->{setRotate(90f);postScale(-1f,1f)};6->setRotate(90f);7->{setRotate(90f);postScale(1f,-1f)};8->setRotate(270f)}}
    val oriented=if(orientation in 2..8)Bitmap.createBitmap(bitmap,0,0,bitmap.width,bitmap.height,matrix,true)else bitmap
-   val out=ByteArrayOutputStream();oriented.compress(Bitmap.CompressFormat.JPEG,92,out);if(oriented!==bitmap)oriented.recycle();bitmap.recycle();"data:image/jpeg;base64,"+android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP)
+   // دور ۱۳: عکس‌های دوربین با کیفیت ۹۲ می‌توانستند تا چند مگابایت شوند و
+   // بدنهٔ درخواست از سقف لبه (۴٬۵ مگابایت در Vercel) رد شود؛ کاربر فقط
+   // «ارتباط قطع شد» می‌دید. حالا فشرده‌سازی مرحله‌ای تا زیر سقف امن انجام می‌شود.
+   val jpeg=encodeJpegUnderLimit(oriented);if(oriented!==bitmap)oriented.recycle();bitmap.recycle();"data:image/jpeg;base64,"+android.util.Base64.encodeToString(jpeg,android.util.Base64.NO_WRAP)
   };if(owner==currentImageOwner()&&vm.state.value.entryComplete){vm.setImage(data);vm.notice("تصویر آماده است؛ مشخصات حساس را پیش از ارسال بپوشانید.")}else vm.notice("نشست یا مسیر تغییر کرده؛ تصویر را دوباره انتخاب کنید.")
   }catch(c:CancellationException){throw c}catch(e:Exception){vm.notice(e.message?:"خواندن تصویر ناموفق بود.")}finally{photo?.delete();if(uri==cameraUri){cameraUri=null;cameraFile=null;cameraOwner=null}}
  } }
+ /**
+  * فشرده‌سازی مرحله‌ای JPEG تا حجم بایت زیر سقف امن بماند.
+  * اول کیفیت و سپس ابعاد کم می‌شود تا کوچک‌ترین تغییر لازم اعمال شود.
+  */
+ private fun encodeJpegUnderLimit(source:Bitmap,maxBytes:Int=2_000_000):ByteArray {
+  var current=source
+  var quality=92
+  var bytes=compressJpeg(current,quality)
+  while(bytes.size>maxBytes&&quality>56){quality-=12;bytes=compressJpeg(current,quality)}
+  var recycled=0
+  while(bytes.size>maxBytes&&current.width>640){
+   val width=maxOf(640,(current.width*3)/4)
+   val next=Bitmap.createScaledBitmap(current,width,maxOf(640,(current.height*3)/4),true)
+   if(current!==source){current.recycle();recycled++}
+   current=next;bytes=compressJpeg(current,68)
+  }
+  if(current!==source&&recycled==0)current.recycle()
+  return bytes
+ }
+ private fun compressJpeg(bitmap:Bitmap,quality:Int):ByteArray {
+  val out=ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,quality,out);return out.toByteArray()
+ }
  private fun download(d:AppEffect.Download){
   if(pendingDocument!=null||wordBusy){vm.notice("یک دریافت سند در حال انجام است.");return}
   pendingDocument=d
